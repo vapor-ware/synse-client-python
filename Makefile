@@ -1,0 +1,49 @@
+#
+# synse python client
+#
+
+PKG_NAME    := synse
+PKG_VERSION := $(shell python setup.py --version)
+
+HAS_PIP_COMPILE := $(shell which pip-compile)
+
+
+.PHONY: clean
+clean:  ## Clean up build artifacts
+	rm -rf build/ dist/ *.egg-info htmlcov/ .coverage* .pytest_cache/ \
+		kubetest/__pycache__ tests/__pycache__
+
+.PHONY: deps
+deps:  ## Update the frozen pip dependencies (requirements.txt)
+ifndef HAS_PIP_COMPILE
+	pip install pip-tools
+endif
+	pip-compile --output-file requirements.txt setup.py
+
+.PHONY: docs
+docs:  ## Build project documentation locally
+	tox -e docs
+
+.PHONY: fmt
+fmt:  ## Run formatting checks on the project source code
+	tox -e format
+
+.PHONY: github-tag
+github-tag:  ## Create and push a GitHub tag with the current version
+	git tag -a ${PKG_VERSION} -m "${PKG_NAME} version ${PKG_VERSION}"
+	git push -u origin ${PKG_VERSION}
+
+.PHONY: test
+test:  ## Run the project unit tests
+	tox
+
+.PHONY: version
+version:  ## Print the package version
+	@echo "$(PKG_VERSION)"
+
+.PHONY: help
+help:  ## Print usage information
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
+
+
+.DEFAULT_GOAL := help
