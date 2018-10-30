@@ -35,7 +35,7 @@ setup(
     zip_safe=False,
     install_requires=[
         'iso8601',
-        'requests',
+        'requests>=2.20.0',
     ],
     classifiers=[
         'Intended Audience :: Developers',
