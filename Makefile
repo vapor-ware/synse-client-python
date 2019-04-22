@@ -5,8 +5,6 @@
 PKG_NAME    := synse
 PKG_VERSION := $(shell python setup.py --version)
 
-HAS_PIP_COMPILE := $(shell which pip-compile)
-
 
 .PHONY: clean
 clean:  ## Clean up build artifacts
@@ -15,10 +13,7 @@ clean:  ## Clean up build artifacts
 
 .PHONY: deps
 deps:  ## Update the frozen pip dependencies (requirements.txt)
-ifndef HAS_PIP_COMPILE
-	pip install pip-tools
-endif
-	pip-compile --output-file requirements.txt setup.py
+	pip-compile --upgrade --output-file requirements.txt setup.py
 
 .PHONY: docs
 docs:  ## Build project documentation locally
