@@ -1,3 +1,4 @@
+"""Synse client response model definitions."""
 
 import iso8601
 import requests
@@ -225,6 +226,29 @@ class Status(BaseResponse):
         super(Status, self).__init__(response, raw)
 
 
+class TransactionInfo(BaseResponse):
+    """TransactionInfo models the response for Synse Server's v3 HTTP API
+    ``/v3/write/<device>`` endpoint.
+
+    Attributes:
+        context (dict): The data written to the device. This is provided as context
+            info to help identify the write action.
+        device (str): The ID of the device being written to.
+        timeout (str): The timeout for the write transaction, after which it will
+            be cancelled. This is effectively the maximum wait time for the transaction
+            to resolve.
+        transaction (str): The ID for the transaction.
+    """
+
+    def __init__(self, response: requests.Response, raw: dict = None):
+        self.context = None
+        self.device = None
+        self.timeout = None
+        self.transaction = None
+
+        super(TransactionInfo, self).__init__(response, raw)
+
+
 class TransactionStatus(BaseResponse):
     """TransactionStatus models the response for Synse Server's v3 HTTP API
     ``/v3/transaction/<transaction-id>`` and ``/v3/write/wait/<device>`` endpoints.
@@ -257,29 +281,6 @@ class TransactionStatus(BaseResponse):
         self.updated = None
 
         super(TransactionStatus, self).__init__(response, raw)
-
-
-class TransactionInfo(BaseResponse):
-    """TransactionInfo models the response for Synse Server's v3 HTTP API
-    ``/v3/write/<device>`` endpoint.
-
-    Attributes:
-        context (dict): The data written to the device. This is provided as context
-            info to help identify the write action.
-        device (str): The ID of the device being written to.
-        timeout (str): The timeout for the write transaction, after which it will
-            be cancelled. This is effectively the maximum wait time for the transaction
-            to resolve.
-        transaction (str): The ID for the transaction.
-    """
-
-    def __init__(self, response: requests.Response, raw: dict = None):
-        self.context = None
-        self.device = None
-        self.timeout = None
-        self.transaction = None
-
-        super(TransactionInfo, self).__init__(response, raw)
 
 
 class Version(BaseResponse):

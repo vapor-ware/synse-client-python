@@ -1,8 +1,8 @@
-"""HTTP API client for Synse Server."""
+"""API clients for Synse Server."""
 
-import logging
 import json
-from typing import Generator, Iterable
+import logging
+from typing import Generator, Iterable, List, Union
 
 import requests
 import requests.exceptions
@@ -93,7 +93,7 @@ class HTTPClientV3:
         )
         return models.Config(response)
 
-    def info(self, device) -> models.DeviceInfo:
+    def info(self, device: str) -> models.DeviceInfo:
         """Get all information associated with the specified device.
 
         Args:
@@ -109,7 +109,7 @@ class HTTPClientV3:
         )
         return models.DeviceInfo(response)
 
-    def plugin(self, plugin_id) -> models.PluginInfo:
+    def plugin(self, plugin_id: str) -> models.PluginInfo:
         """Get all information associated with the specified plugin.
 
         Args:
@@ -151,7 +151,7 @@ class HTTPClientV3:
         )
         return [models.PluginSummary(response, raw) for raw in response.json()]
 
-    def read(self, ns=None, tags=None) -> Iterable[models.Reading]:
+    def read(self, ns: str = None, tags: List[str] = None) -> Iterable[models.Reading]:
         """Get the latest reading(s) for all devices which match the specified selector(s).
 
         Args:
@@ -165,7 +165,7 @@ class HTTPClientV3:
 
         params = {
             'ns': ns,
-            'tags': ','.join(tags) if tags else None
+            'tags': ','.join(tags) if tags else None,
         }
         params = {k: v for k, v in params if v is not None}
 
@@ -176,7 +176,7 @@ class HTTPClientV3:
         )
         return [models.Reading(response, raw) for raw in response.json()]
 
-    def read_cache(self, start=None, end=None) -> Generator[models.Reading]:
+    def read_cache(self, start: str = None, end: str = None) -> Generator[models.Reading, None, None]:
         """Get a window of cached device readings.
 
         Args:
@@ -208,7 +208,7 @@ class HTTPClientV3:
             raw = json.loads(chunk)
             yield models.Reading(response, raw)
 
-    def read_device(self, device) -> Iterable[models.Reading]:
+    def read_device(self, device: str) -> Iterable[models.Reading]:
         """Get the latest reading(s) for the specified device.
 
         Args:
@@ -224,7 +224,9 @@ class HTTPClientV3:
         )
         return [models.Reading(response, raw) for raw in response.json()]
 
-    def scan(self, force=None, ns=None, sort=None, tags=None) -> Generator[models.DeviceSummary]:
+    def scan(
+            self, force: bool = None, ns: str = None, sort: str = None, tags: List[str] = None,
+    ) -> Generator[models.DeviceSummary, None, None]:
         """Get a summary of all devices currently exposed by the Synse Server instance.
 
         Args:
@@ -249,7 +251,7 @@ class HTTPClientV3:
             'force': str(force) if force is not None else None,
             'ns': ns,
             'sort': sort,
-            'tags': ','.join(tags) if tags else None
+            'tags': ','.join(tags) if tags else None,
         }
         params = {k: v for k, v in params if v is not None}
 
@@ -276,7 +278,7 @@ class HTTPClientV3:
         )
         return models.Status(response)
 
-    def tags(self, ns=None, ids=None) -> Iterable[str]:
+    def tags(self, ns: str = None, ids: bool = None) -> Iterable[str]:
         """Get a list of the tags currently associated with registered devices.
 
         Args:
@@ -301,7 +303,7 @@ class HTTPClientV3:
         )
         return response.json()
 
-    def transaction(self, transaction_id) -> models.TransactionStatus:
+    def transaction(self, transaction_id: str) -> models.TransactionStatus:
         """Get the status of an asynchronous write transaction.
 
         Args:
@@ -343,7 +345,9 @@ class HTTPClientV3:
         )
         return models.Version(response)
 
-    def write_async(self, device, payload) -> Iterable[models.TransactionInfo]:
+    def write_async(
+            self, device: str, payload: Union[List[dict], dict],
+    ) -> Iterable[models.TransactionInfo]:
         """Write to the specified device asynchronously.
 
         This method will queue up a write with the device's plugin and will
@@ -366,7 +370,9 @@ class HTTPClientV3:
         )
         return [models.TransactionInfo(response, raw) for raw in response.json()]
 
-    def write_sync(self, device, payload) -> Iterable[models.TransactionStatus]:
+    def write_sync(
+            self, device: str, payload: Union[List[dict], dict],
+    ) -> Iterable[models.TransactionStatus]:
         """Write to the specified device synchronously.
 
         This method will wait until the write action has completed. It is up
