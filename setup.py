@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Setup and packaging for the synse python client."""
+"""Setup and packaging for the Synse python client."""
 
 import os
 
@@ -26,12 +26,13 @@ setup(
     version=pkg['__version__'],
     description=pkg['__description__'],
     long_description=readme,
+    long_description_content_type='text/markdown',
     url=pkg['__url__'],
     author=pkg['__author__'],
     author_email=pkg['__author_email__'],
     license=pkg['__license__'],
     packages=find_packages(),
-    python_requires='>=3.6',  # TODO - expand to more python versions
+    python_requires='>=3.6',
     zip_safe=False,
     install_requires=[
         'iso8601',
