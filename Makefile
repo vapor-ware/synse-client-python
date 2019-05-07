@@ -9,7 +9,7 @@ PKG_VERSION := $(shell python setup.py --version)
 .PHONY: clean
 clean:  ## Clean up build artifacts
 	rm -rf build/ dist/ *.egg-info htmlcov/ .coverage* .pytest_cache/ \
-		synse/__pycache__ tests/__pycache__ results/
+		synse/__pycache__ tests/__pycache__
 
 .PHONY: deps
 deps:  ## Update the frozen pip dependencies (requirements.txt)
