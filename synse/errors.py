@@ -41,7 +41,7 @@ code_to_err = {
 }
 
 
-def wrap_and_raise_for_error(response: requests.Response):
+def wrap_and_raise_for_error(response: requests.Response) -> None:
     """Check if the response failed with a non-2XX status code.
 
     If the response has a non-2XX error code, wrap it in the appropriate
@@ -60,6 +60,11 @@ def wrap_and_raise_for_error(response: requests.Response):
         log.error(f'request to {response.url} responded with {response.status_code}: {e}')
         error_cls = code_to_err.get(response.status_code)
         if error_cls is not None:
-            data = response.json()
-            raise error_cls(data.get('context')) from e
+            try:
+                data = response.json()
+            except Exception as e:
+                log.error(f'failed to parse response JSON: {e}')
+                raise error_cls from e
+            else:
+                raise error_cls(data.get('context')) from e
         raise SynseError from e

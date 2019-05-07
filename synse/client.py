@@ -167,7 +167,7 @@ class HTTPClientV3:
             'ns': ns,
             'tags': ','.join(tags) if tags else None,
         }
-        params = {k: v for k, v in params if v is not None}
+        params = {k: v for k, v in params.items() if v is not None}
 
         response = self.make_request(
             url=f'{self.url}/read',
@@ -195,7 +195,7 @@ class HTTPClientV3:
             'start': start,
             'end': end,
         }
-        params = {k: v for k, v in params if v is not None}
+        params = {k: v for k, v in params.items() if v is not None}
 
         response = self.make_request(
             url=f'{self.url}/readcache',
@@ -253,7 +253,7 @@ class HTTPClientV3:
             'sort': sort,
             'tags': ','.join(tags) if tags else None,
         }
-        params = {k: v for k, v in params if v is not None}
+        params = {k: v for k, v in params.items() if v is not None}
 
         response = self.make_request(
             url=f'{self.url}/scan',
@@ -294,7 +294,7 @@ class HTTPClientV3:
             'ns': ns,
             'ids': str(ids) if ids is not None else None,
         }
-        params = {k: v for k, v in params if v is not None}
+        params = {k: v for k, v in params.items() if v is not None}
 
         response = self.make_request(
             url=f'{self.url}/tags',
@@ -388,7 +388,7 @@ class HTTPClientV3:
 
         response = self.make_request(
             url=f'{self.url}/write/wait/{device}',
-            method=GET,
+            method=POST,
             data=payload,
         )
         return [models.TransactionStatus(response, raw) for raw in response.json()]
