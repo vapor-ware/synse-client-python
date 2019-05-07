@@ -9,24 +9,28 @@ PKG_VERSION := $(shell python setup.py --version)
 .PHONY: clean
 clean:  ## Clean up build artifacts
 	rm -rf build/ dist/ *.egg-info htmlcov/ .coverage* .pytest_cache/ \
-		kubetest/__pycache__ tests/__pycache__
+		synse/__pycache__ tests/__pycache__
 
 .PHONY: deps
 deps:  ## Update the frozen pip dependencies (requirements.txt)
-	pip-compile --upgrade --output-file requirements.txt setup.py
+	tox -e deps
 
 .PHONY: docs
 docs:  ## Build project documentation locally
 	tox -e docs
 
 .PHONY: fmt
-fmt:  ## Run formatting checks on the project source code
-	tox -e format
+fmt:  ## Automatic source code formatting (isort)
+	tox -e fmt
 
 .PHONY: github-tag
 github-tag:  ## Create and push a GitHub tag with the current version
 	git tag -a ${PKG_VERSION} -m "${PKG_NAME} version ${PKG_VERSION}"
 	git push -u origin ${PKG_VERSION}
+
+.PHONY: lint
+lint:  ## Run linting checks on the project source code (isort, flake8)
+	tox -e lint
 
 .PHONY: test
 test:  ## Run the project unit tests
