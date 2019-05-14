@@ -20,7 +20,7 @@ docs:  ## Build project documentation locally
 	tox -e docs
 
 .PHONY: fmt
-fmt:  ## Automatic source code formatting (isort)
+fmt:  ## Automatic source code formatting (isort, autopep8)
 	tox -e fmt
 
 .PHONY: github-tag
@@ -29,7 +29,7 @@ github-tag:  ## Create and push a GitHub tag with the current version
 	git push -u origin ${PKG_VERSION}
 
 .PHONY: lint
-lint:  ## Run linting checks on the project source code (isort, flake8)
+lint:  ## Run linting checks on the project source code (isort, flake8, twine check)
 	tox -e lint
 
 .PHONY: test
