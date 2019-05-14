@@ -1,6 +1,7 @@
 
 import typing
 
+import asynctest
 import pytest
 import requests
 
@@ -20,8 +21,8 @@ class TestHTTPClientV3:
         assert c.base == 'http://localhost:5000'
         assert c.url == 'http://localhost:5000/v3'
 
-    def test_make_request_error(self, mock_response):
-        # The mocked request will return a connection error (an instance of
+    def test_make_request_error(self):
+        # The request will return a connection error (an instance of
         # RequestException) if the fetched URL doesn't hit a match.
         c = client.HTTPClientV3('localhost')
 
@@ -624,3 +625,630 @@ class TestHTTPClientV3:
         with pytest.raises(errors.NotFound) as e:
             c.write_sync('123', {'action': 'foo'})
         assert str(e.value) == 'device not found'
+
+
+class TestWebsocketClientV3:
+    """Tests for the WebsocketClientV3 class."""
+
+    def test_init(self):
+        c = client.WebsocketClientV3('localhost')
+
+        assert c.host == 'localhost'
+        assert c.port == 5000
+
+        assert isinstance(c.session, client.WSSession)
+        assert c.session.host == 'localhost'
+        assert c.session.port == 5000
+        assert c.session.api_version == 'v3'
+        assert c.session.connect_url == 'ws://localhost:5000/v3/connect'
+
+    @pytest.mark.asyncio
+    async def test_make_request_error(self):
+        # The request will return a connection error if the fetched URL
+        # isn't valid. This should be wrapped in a Synse error.
+        c = client.WebsocketClientV3('127.0.0.1', 5432)
+
+        with pytest.raises(errors.SynseError):
+            await c.session.request('request/status')
+
+    @pytest.mark.asyncio
+    async def test_config(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.config}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.config()
+
+            assert isinstance(resp, models.Config)
+            assert resp.raw == synse_response.config
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/config',
+        )
+
+    @pytest.mark.asyncio
+    async def test_config_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.config()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/config',
+        )
+
+    @pytest.mark.asyncio
+    async def test_info(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.info}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.info('123')
+
+            assert isinstance(resp, models.DeviceInfo)
+            assert resp.raw == synse_response.info
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/info',
+            data={
+                'device': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_info_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.info('123')
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/info',
+            data={
+                'device': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.plugin}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.plugin('123')
+
+            assert isinstance(resp, models.PluginInfo)
+            assert resp.raw == synse_response.plugin
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin',
+            data={
+                'plugin': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.plugin('123')
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin',
+            data={
+                'plugin': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin_health(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.plugin_health}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.plugin_health()
+
+            assert isinstance(resp, models.PluginHealth)
+            assert resp.raw == synse_response.plugin_health
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin_health',
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin_health_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.plugin_health()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin_health',
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugins(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.plugins}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.plugins()
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.PluginSummary) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugins_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.plugins()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/plugin',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'ns,tags,expected', [
+            (None, None, {}),
+            ('default', None, {'ns': 'default'}),
+            (None, [], {'tags': []}),
+            (None, ['foo', 'default/bar'], {'tags': ['foo', 'default/bar']}),
+            ('default', ['foo', 'default/bar'], {'ns': 'default', 'tags': ['foo', 'default/bar']}),
+        ]
+    )
+    async def test_read(self, synse_response, ns, tags, expected):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.read}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.read(
+                ns=ns,
+                tags=tags,
+            )
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.Reading) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read',
+            data=expected,
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.read()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'start,end,expected', [
+            (None, None, {}),
+            ('2019-04-22T13:30:00Z', None, {'start': '2019-04-22T13:30:00Z'}),
+            (None, '2019-04-22T13:30:00Z', {'end': '2019-04-22T13:30:00Z'}),
+            ('2019-04-22T13:30:00Z', '2019-04-22T13:30:00Z', {'start': '2019-04-22T13:30:00Z', 'end': '2019-04-22T13:30:00Z'}),
+        ]
+    )
+    async def test_read_cache(self, synse_response, start, end, expected):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.read}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = [x async for x in c.read_cache(
+                start=start,
+                end=end,
+            )]
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.Reading) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_cache',
+            data=expected,
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_cache_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                _ = [x async for x in c.read_cache()]
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_cache',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_device(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.read_device}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.read_device('123')
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.Reading) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_device',
+            data={
+                'device': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_device_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.read_device('123')
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_device',
+            data={
+                'device': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'force,ns,tags,expected', [
+            (None, None, None, {}),
+            (True, None, None, {'force': True}),
+            (None, 'default', None, {'ns': 'default'}),
+            (None, None, [], {'tags': []}),
+            (None, None, ['foo', 'default/bar'], {'tags': ['foo', 'default/bar']}),
+            (False, 'default', ['foo', 'default/bar'], {'force': False, 'ns': 'default', 'tags': ['foo', 'default/bar']}),
+        ]
+    )
+    async def test_scan(self, synse_response, force, ns, tags, expected):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.scan}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.scan(
+                force=force,
+                ns=ns,
+                tags=tags,
+            )
+
+            assert isinstance(resp, typing.Generator)
+            assert all(isinstance(elem, models.DeviceSummary) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/scan',
+            data=expected,
+        )
+
+    @pytest.mark.asyncio
+    async def test_scan_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.scan()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/scan',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_status(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.status}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.status()
+
+            assert isinstance(resp, models.Status)
+            assert resp.raw == synse_response.status
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/status',
+        )
+
+    @pytest.mark.asyncio
+    async def test_status_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.status()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/status',
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'ns,ids,expected', [
+            (None, None, {}),
+            ('default', None, {'ns': 'default'}),
+            (None, True, {'ids': True}),
+            ('default', False, {'ns': 'default', 'ids': False}),
+        ]
+    )
+    async def test_tags(self, synse_response, ns, ids, expected):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.tags}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.tags(
+                ns=ns,
+                ids=ids,
+            )
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, str) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/tags',
+            data=expected,
+        )
+
+    @pytest.mark.asyncio
+    async def test_tags_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.tags()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/tags',
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_transaction(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.transaction}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.transaction('123')
+
+            assert isinstance(resp, models.TransactionStatus)
+            assert resp.raw == synse_response.transaction
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/transaction',
+            data={
+                'transaction': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_transaction_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.transaction('123')
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/transaction',
+            data={
+                'transaction': '123',
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_transactions(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.transactions}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.transactions()
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, str) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/transaction',
+        )
+
+    @pytest.mark.asyncio
+    async def test_transactions_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.transactions()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/transaction',
+        )
+
+    @pytest.mark.asyncio
+    async def test_version(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.version}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.version()
+
+            assert isinstance(resp, models.Version)
+            assert resp.raw == synse_response.version
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/version',
+        )
+
+    @pytest.mark.asyncio
+    async def test_version_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.version()
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/version',
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_async(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.write_async}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.write_async('123', {'action': 'foo'})
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.TransactionInfo) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/write_async',
+            data={
+                'device': '123',
+                'payload': {
+                    'action': 'foo',
+                },
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_async_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.write_async('123', {'action': 'foo'})
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/write_async',
+            data={
+                'device': '123',
+                'payload': {
+                    'action': 'foo',
+                },
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_sync(self, synse_response):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.return_value = {'data': synse_response.write_sync}
+
+            c = client.WebsocketClientV3('localhost')
+            resp = await c.write_sync('123', {'action': 'foo'})
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.TransactionStatus) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/write_sync',
+            data={
+                'device': '123',
+                'payload': {
+                    'action': 'foo',
+                },
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_sync_error(self):
+        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                await c.write_sync('123', {'action': 'foo'})
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/write_sync',
+            data={
+                'device': '123',
+                'payload': {
+                    'action': 'foo',
+                },
+            },
+        )
