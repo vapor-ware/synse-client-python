@@ -10,3 +10,4 @@ idna==2.8                 # via requests
 iso8601==0.1.12
 requests==2.21.0
 urllib3==1.24.3           # via requests
+websockets==7.0

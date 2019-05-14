@@ -37,6 +37,7 @@ setup(
     install_requires=[
         'iso8601',
         'requests>=2.20.0',
+        'websockets',
     ],
     classifiers=[
         'Intended Audience :: Developers',
