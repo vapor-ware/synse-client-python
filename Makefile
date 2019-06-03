@@ -2,22 +2,18 @@
 # synse python client
 #
 
-PKG_NAME    := synse
+PKG_NAME    := $(shell python setup.py --name)
 PKG_VERSION := $(shell python setup.py --version)
 
 
 .PHONY: clean
 clean:  ## Clean up build artifacts
 	rm -rf build/ dist/ *.egg-info htmlcov/ .coverage* .pytest_cache/ \
-		synse/__pycache__ tests/__pycache__
+		synse/__pycache__ tests/__pycache__ site/
 
 .PHONY: deps
 deps:  ## Update the frozen pip dependencies (requirements.txt)
 	tox -e deps
-
-.PHONY: docs
-docs:  ## Build project documentation locally
-	tox -e docs
 
 .PHONY: fmt
 fmt:  ## Automatic source code formatting (isort, autopep8)
@@ -38,7 +34,7 @@ test:  ## Run the project unit tests
 
 .PHONY: version
 version:  ## Print the package version
-	@echo "$(PKG_VERSION)"
+	@echo "${PKG_VERSION}"
 
 .PHONY: help
 help:  ## Print usage information

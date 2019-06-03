@@ -45,14 +45,17 @@ class DeviceInfo(BaseResponse):
     ``/v3/info/<device>`` endpoint.
 
     Attributes:
+        alias (str): A human-readable name for the device.
         capabilities (dict): Specifies the actions which the device is able to
             perform (e.g. read, write).
         id (str): The globally unique ID for the device.
         info (str): A human readable string providing identifying info about a device.
         metadata (dict): A dictionary of arbitrary values that provide additional
             data for the device.
-        output (list[dict]): A list of the output types that the device supports.
+        outputs (list[dict]): A list of the output types that the device supports.
         plugin (str): The ID of the plugin that manages the device.
+        sort_index (int): A custom sort index specified for the device by its plugin.
+            The default value of 0 indicates no special sorting.
         tags (list[str]): A list of the tags associated with this device.
         timestamp (datetime.datetime): A timestamp describing the time that the
             device info was gathered.
@@ -60,12 +63,14 @@ class DeviceInfo(BaseResponse):
     """
 
     def __init__(self, response: requests.Response, raw: dict = None):
+        self.alias = None
         self.capabilities = None
         self.id = None
         self.info = None
         self.metadata = None
-        self.output = None
+        self.outputs = None
         self.plugin = None
+        self.sort_index = None
         self.tags = None
         self.timestamp = None
         self.type = None
@@ -170,6 +175,8 @@ class PluginSummary(BaseResponse):
         id (str): An ID hash for identifying the plugin, generated from plugin metadata.
         maintainer (str): The maintainer of the plugin.
         name (str): The name of plugin.
+        tag (str): The plugin tag. This is a normalized string made up of the
+            name and maintainer.
     """
 
     def __init__(self, response: requests.Response, raw: dict = None):
@@ -178,6 +185,7 @@ class PluginSummary(BaseResponse):
         self.id = None
         self.maintainer = None
         self.name = None
+        self.tag = None
 
         super(PluginSummary, self).__init__(response, raw)
 
@@ -215,8 +223,8 @@ class Status(BaseResponse):
     ``/test`` endpoint.
 
     Attributes:
-        status (str):
-        timestamp (datetime.datetime):
+        status (str): "ok" if the endpoint returns successfully.
+        timestamp (datetime.datetime): The time at which the status was tested.
     """
 
     def __init__(self, response: requests.Response, raw: dict = None):
@@ -234,17 +242,17 @@ class TransactionInfo(BaseResponse):
         context (dict): The data written to the device. This is provided as context
             info to help identify the write action.
         device (str): The ID of the device being written to.
+        id (str): The ID for the transaction.
         timeout (str): The timeout for the write transaction, after which it will
             be cancelled. This is effectively the maximum wait time for the transaction
             to resolve.
-        transaction (str): The ID for the transaction.
     """
 
     def __init__(self, response: requests.Response, raw: dict = None):
         self.context = None
         self.device = None
+        self.id = None
         self.timeout = None
-        self.transaction = None
 
         super(TransactionInfo, self).__init__(response, raw)
 
@@ -288,8 +296,9 @@ class Version(BaseResponse):
     ``/version`` endpoint.
 
     Attributes:
-        api_version (str):
-        version (str):
+        api_version (str): The API version (v<major>) of the Synse Server instance.
+        version (str): The full version (<major>.<minor>.<patch>) of the Synse
+            Server instance.
     """
 
     def __init__(self, response: requests.Response, raw: dict = None):

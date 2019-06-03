@@ -800,7 +800,7 @@ class TestWebsocketClientV3:
 
         mock_request.assert_called_once()
         mock_request.assert_called_with(
-            'request/plugin',
+            'request/plugins',
             data={},
         )
 
@@ -816,7 +816,7 @@ class TestWebsocketClientV3:
 
         mock_request.assert_called_once()
         mock_request.assert_called_with(
-            'request/plugin',
+            'request/plugins',
             data={},
         )
 
@@ -1118,7 +1118,7 @@ class TestWebsocketClientV3:
 
         mock_request.assert_called_once()
         mock_request.assert_called_with(
-            'request/transaction',
+            'request/transactions',
         )
 
     @pytest.mark.asyncio
@@ -1133,7 +1133,7 @@ class TestWebsocketClientV3:
 
         mock_request.assert_called_once()
         mock_request.assert_called_with(
-            'request/transaction',
+            'request/transactions',
         )
 
     @pytest.mark.asyncio

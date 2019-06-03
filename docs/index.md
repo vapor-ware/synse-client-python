@@ -1,3 +1,0 @@
-# Synse Python Client
-
-TODO
