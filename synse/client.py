@@ -88,6 +88,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API config response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#config
         """
 
         response = self.make_request(
@@ -104,6 +107,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API info response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#info
         """
 
         response = self.make_request(
@@ -120,6 +126,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API plugin response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugin-info
         """
 
         response = self.make_request(
@@ -133,6 +142,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API plugin health response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugin-health
         """
 
         response = self.make_request(
@@ -146,6 +158,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API plugins response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugins
         """
 
         response = self.make_request(
@@ -164,6 +179,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API read response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read
         """
 
         params = {
@@ -192,6 +210,9 @@ class HTTPClientV3:
 
         Yields:
             The Synse v3 API read cache response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read-cache
         """
 
         params = {
@@ -219,6 +240,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API read device response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read-device
         """
 
         response = self.make_request(
@@ -248,6 +272,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API scan response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#scan
         """
 
         params = {
@@ -273,6 +300,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API status response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#test
         """
 
         response = self.make_request(
@@ -291,6 +321,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API tags response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#tags
         """
 
         params = {
@@ -314,6 +347,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API transaction response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#transaction
         """
 
         response = self.make_request(
@@ -327,6 +363,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API transactions response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#transactions
         """
 
         response = self.make_request(
@@ -340,6 +379,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API version response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#version
         """
 
         response = self.make_request(
@@ -364,6 +406,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API asynchronous write response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#write-asynchronous
         """
 
         response = self.make_request(
@@ -387,6 +432,9 @@ class HTTPClientV3:
 
         Returns:
             The Synse v3 API synchronous write response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#write-synchronous
         """
 
         response = self.make_request(
@@ -465,6 +513,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API config response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#config
         """
 
         r = await self.session.request('request/config')
@@ -478,6 +529,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API info response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#info
         """
 
         r = await self.session.request('request/info', data={
@@ -493,6 +547,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API plugin response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugin-info
         """
 
         r = await self.session.request('request/plugin', data={
@@ -505,6 +562,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API plugin health response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugin-health
         """
 
         r = await self.session.request('request/plugin_health')
@@ -515,9 +575,12 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API plugins response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#plugins
         """
 
-        r = await self.session.request('request/plugin', data={})
+        r = await self.session.request('request/plugins', data={})
         return [models.PluginSummary(response=r, raw=raw) for raw in r['data']]
 
     async def read(self, ns: str = None, tags: List[str] = None) -> Iterable[models.Reading]:
@@ -530,6 +593,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API read response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read
         """
 
         data = {
@@ -554,6 +620,9 @@ class WebsocketClientV3:
 
         Yields:
             The Synse v3 API read cache response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read-cache
         """
 
         data = {
@@ -574,6 +643,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API read device response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#read-device
         """
 
         r = await self.session.request('request/read_device', data={
@@ -602,6 +674,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API scan response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#scan
         """
 
         data = {
@@ -623,6 +698,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API status response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#test
         """
 
         r = await self.session.request('request/status')
@@ -638,6 +716,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API tags response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#tags
         """
 
         data = {
@@ -657,6 +738,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API transaction response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#transaction
         """
 
         r = await self.session.request('request/transaction', data={
@@ -669,9 +753,12 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API transactions response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#transactions
         """
 
-        r = await self.session.request('request/transaction')
+        r = await self.session.request('request/transactions')
         return r['data']
 
     async def version(self) -> models.Version:
@@ -679,6 +766,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API version response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#version
         """
 
         r = await self.session.request('request/version')
@@ -700,6 +790,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API asynchronous write response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#write-asynchronous
         """
 
         data = {
@@ -725,6 +818,9 @@ class WebsocketClientV3:
 
         Returns:
             The Synse v3 API synchronous write response.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#write-synchronous
         """
 
         data = {
