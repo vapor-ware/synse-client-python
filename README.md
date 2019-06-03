@@ -27,7 +27,7 @@ which contains the documentation for many components of the Synse platform.
 Below is a basic example of using the HTTP API, showcasing getting the server status,
 getting the devices managed by the server, and reading from devices.
 
-```python
+```python console
 >>> from synse import client
 >>> c = client.HTTPClientV3(host='localhost')
 >>>
@@ -42,19 +42,19 @@ datetime.datetime(2019, 6, 3, 13, 47, 25, tzinfo=datetime.timezone.utc)
 >>> for device in c.scan():
 ... 	print(device.id)
 ... 
-01976737-085c-5e4c-94bc-a383d3d130fb
-1b714cf2-cc56-5c36-9741-fd6a483b5f10
-494bd3ed-72ec-53e9-ba65-729610516e25
-69c2e1e2-e658-5d71-8e43-091f68aa6e84
-89fd576d-462c-53be-bcb6-7870e70c304a
-9669ca7a-41c1-5ad8-8c45-c359ca47f7f4
-9907bdfa-75e1-5af5-8385-87184f356b22
-998e6025-ddfb-533a-9efe-dd26d512b555
-b30f844d-f0db-557f-b073-893917f909ad
-b9324904-385b-581d-b790-5e53eaabfd20
-c2f6f762-fa30-5f0a-ba6c-f52d8deb3c07
-f041883c-cf87-55d7-a978-3d3103836412
-fef34490-4952-5e92-bf4d-aad169df980e
+'01976737-085c-5e4c-94bc-a383d3d130fb'
+'1b714cf2-cc56-5c36-9741-fd6a483b5f10'
+'494bd3ed-72ec-53e9-ba65-729610516e25'
+'69c2e1e2-e658-5d71-8e43-091f68aa6e84'
+'89fd576d-462c-53be-bcb6-7870e70c304a'
+'9669ca7a-41c1-5ad8-8c45-c359ca47f7f4'
+'9907bdfa-75e1-5af5-8385-87184f356b22'
+'998e6025-ddfb-533a-9efe-dd26d512b555'
+'b30f844d-f0db-557f-b073-893917f909ad'
+'b9324904-385b-581d-b790-5e53eaabfd20'
+'c2f6f762-fa30-5f0a-ba6c-f52d8deb3c07'
+'f041883c-cf87-55d7-a978-3d3103836412'
+'fef34490-4952-5e92-bf4d-aad169df980e'
 >>>
 >>> # Read from all devices
 >>> for reading in c.read():
