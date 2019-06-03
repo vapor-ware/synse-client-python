@@ -50,7 +50,7 @@ def test_response_device_info():
     assert resp.id == '123'
     assert resp.info is None
     assert resp.metadata == {'vapor': 'io'}
-    assert resp.output is None
+    assert resp.outputs is None
     assert resp.plugin == '456'
     assert resp.tags is None
     assert resp.timestamp == datetime.datetime(2019, 4, 22, 13, 30, tzinfo=datetime.timezone.utc)
@@ -201,7 +201,7 @@ def test_response_transaction_info():
         'context': {},
         'device': '123',
         'timeout': '5s',
-        'transaction': '789',
+        'id': '789',
     })
 
     resp = models.TransactionInfo(fake_response)
@@ -209,7 +209,7 @@ def test_response_transaction_info():
     assert resp.context == {}
     assert resp.device == '123'
     assert resp.timeout == '5s'
-    assert resp.transaction == '789'
+    assert resp.id == '789'
 
     assert resp.response == fake_response
     assert resp.raw == fake_response.data
