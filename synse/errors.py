@@ -1,8 +1,9 @@
 """Errors and exceptions for the Synse API client."""
 
+import json
 import logging
 
-import requests
+import aiohttp
 
 log = logging.getLogger('synse')
 
@@ -41,27 +42,32 @@ code_to_err = {
 }
 
 
-def wrap_and_raise_for_error(response: requests.Response) -> None:
+async def wrap_and_raise_for_error(response: aiohttp.ClientResponse) -> None:
     """Check if the response failed with a non-2XX status code.
 
     If the response has a non-2XX error code, wrap it in the appropriate
     client exception and re-raise. Otherwise, do nothing.
 
     Args:
-        response (requests.Response): The response to check for a
-            non-OK status.
+        response: The response to check for a non-OK status.
 
     Raises:
         SynseError: The response had a non-2XX error code.
     """
     try:
+        body = await response.text()
+    except Exception as e:
+        log.debug('unable to get response text: {}'.format(e))
+        body = response.reason
+
+    try:
         response.raise_for_status()
-    except requests.HTTPError as e:
-        log.error(f'request to {response.url} responded with {response.status_code}: {e}')
-        error_cls = code_to_err.get(response.status_code)
+    except aiohttp.ClientResponseError as e:
+        log.error(f'request to {response.url} responded with {response.status}: {e}')
+        error_cls = code_to_err.get(response.status)
         if error_cls is not None:
             try:
-                data = response.json()
+                data = json.loads(body)
             except Exception as e:
                 log.error(f'failed to parse response JSON: {e}')
                 raise error_cls from e

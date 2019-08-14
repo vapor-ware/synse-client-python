@@ -1,26 +1,21 @@
 """Synse client response model definitions."""
 
+from typing import Type, Union
+
 import iso8601
-import requests
 
 
 class BaseResponse:
     """The base class for all of the Synse client's response classes.
 
     Attributes:
-        response (requests.Response): The HTTP response from Synse Server.
-        raw (dict | list): The raw JSON data returned in the response,
-            loaded into its corresponding Python data type.
+        _data: The JSON data returned in the response, as a dictionary.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
-        if raw is None:
-            raw = response.json()
+    def __init__(self, data: dict):
+        self._data = data
 
-        self.raw = raw
-        self.response = response
-
-        for k, v in self.raw.items():
+        for k, v in self._data.items():
             if hasattr(self, k):
                 # The timestamp, created, and updated fields will all
                 # hold an RFC3339-formatted timestamp string. Here, we
@@ -30,14 +25,38 @@ class BaseResponse:
                 setattr(self, k, v)
 
 
+def make_response(
+        response_class: Union[Type[BaseResponse], None],
+        response: Union[dict, list],
+):
+    """Populate a Synse response object with data from the given HTTP response.
+
+    Args:
+        response_class: The Synse response class to load the data into.
+        response: The JSON response from Synse Server.
+    """
+
+    if response_class is None:
+        return response
+
+    if isinstance(response, list):
+        return [response_class(item) for item in response]
+
+    return response_class(response)
+
+
 class Config(BaseResponse):
     """Config models the response for Synse Server's v3 HTTP API
     ``/v3/config`` endpoint.
 
     It does not define any attributes. Instead, the configuration value
-    should be taken from the response's ``raw`` field, which holds the
-    raw JSON data returned in the response.
+    should be taken from the response's ``data`` field, which holds the
+    JSON data returned in the response.
     """
+
+    def __init__(self, data: dict):
+        super(Config, self).__init__(data)
+        self.data = self._data
 
 
 class DeviceInfo(BaseResponse):
@@ -62,7 +81,7 @@ class DeviceInfo(BaseResponse):
         type (str): The device type, as specified by the plugin.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.alias = None
         self.capabilities = None
         self.id = None
@@ -75,7 +94,7 @@ class DeviceInfo(BaseResponse):
         self.timestamp = None
         self.type = None
 
-        super(DeviceInfo, self).__init__(response, raw)
+        super(DeviceInfo, self).__init__(data)
 
 
 class DeviceSummary(BaseResponse):
@@ -91,7 +110,7 @@ class DeviceSummary(BaseResponse):
         type (str): The type of the device, as defined by its plugin.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.alias = None
         self.id = None
         self.info = None
@@ -99,7 +118,7 @@ class DeviceSummary(BaseResponse):
         self.tags = None
         self.type = None
 
-        super(DeviceSummary, self).__init__(response, raw)
+        super(DeviceSummary, self).__init__(data)
 
 
 class PluginHealth(BaseResponse):
@@ -121,7 +140,7 @@ class PluginHealth(BaseResponse):
             health state was last updated.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.active = None
         self.healthy = None
         self.inactive = None
@@ -129,7 +148,7 @@ class PluginHealth(BaseResponse):
         self.unhealthy = None
         self.updated = None
 
-        super(PluginHealth, self).__init__(response, raw)
+        super(PluginHealth, self).__init__(data)
 
 
 class PluginInfo(BaseResponse):
@@ -150,7 +169,7 @@ class PluginInfo(BaseResponse):
         vcs (str): A link to the version control repo for the plugin.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.active = None
         self.description = None
         self.health = None
@@ -162,7 +181,7 @@ class PluginInfo(BaseResponse):
         self.version = None
         self.vcs = None
 
-        super(PluginInfo, self).__init__(response, raw)
+        super(PluginInfo, self).__init__(data)
 
 
 class PluginSummary(BaseResponse):
@@ -179,7 +198,7 @@ class PluginSummary(BaseResponse):
             name and maintainer.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.active = None
         self.description = None
         self.id = None
@@ -187,7 +206,7 @@ class PluginSummary(BaseResponse):
         self.name = None
         self.tag = None
 
-        super(PluginSummary, self).__init__(response, raw)
+        super(PluginSummary, self).__init__(data)
 
 
 class Reading(BaseResponse):
@@ -206,7 +225,7 @@ class Reading(BaseResponse):
         value: The value of the reading.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.context = None
         self.device = None
         self.device_type = None
@@ -215,7 +234,7 @@ class Reading(BaseResponse):
         self.unit = None
         self.value = None
 
-        super(Reading, self).__init__(response, raw)
+        super(Reading, self).__init__(data)
 
 
 class Status(BaseResponse):
@@ -227,11 +246,11 @@ class Status(BaseResponse):
         timestamp (datetime.datetime): The time at which the status was tested.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.status = None
         self.timestamp = None
 
-        super(Status, self).__init__(response, raw)
+        super(Status, self).__init__(data)
 
 
 class TransactionInfo(BaseResponse):
@@ -248,13 +267,13 @@ class TransactionInfo(BaseResponse):
             to resolve.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.context = None
         self.device = None
         self.id = None
         self.timeout = None
 
-        super(TransactionInfo, self).__init__(response, raw)
+        super(TransactionInfo, self).__init__(data)
 
 
 class TransactionStatus(BaseResponse):
@@ -278,7 +297,7 @@ class TransactionStatus(BaseResponse):
             no further updates will occur.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.context = None
         self.created = None
         self.device = None
@@ -288,7 +307,7 @@ class TransactionStatus(BaseResponse):
         self.timeout = None
         self.updated = None
 
-        super(TransactionStatus, self).__init__(response, raw)
+        super(TransactionStatus, self).__init__(data)
 
 
 class Version(BaseResponse):
@@ -301,8 +320,8 @@ class Version(BaseResponse):
             Server instance.
     """
 
-    def __init__(self, response: requests.Response, raw: dict = None):
+    def __init__(self, data: dict):
         self.api_version = None
         self.version = None
 
-        super(Version, self).__init__(response, raw)
+        super(Version, self).__init__(data)

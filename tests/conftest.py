@@ -1,6 +1,15 @@
 
+import asyncio
+import json
+from unittest import mock
+
+import aiohttp
 import pytest
-import responses
+from aiohttp import web
+from aiohttp.helpers import TimerNoop
+from yarl import URL
+
+from synse import client
 
 
 class SynseTestData:
@@ -322,13 +331,130 @@ class SynseTestData:
         }
     ]
 
+    error = {
+        'http_code': 500,
+        'description': 'error for tests',
+        'timestamp': '2019-05-07T11:14:40Z',
+        'context': 'error context',
+    }
+
+
+#
+# Test server route functions
+#
+
+def make_handler(name):
+    async def handler(request, *args):
+        return web.Response(
+            content_type='application/json',
+            body=json.dumps(getattr(SynseTestData, name)).encode(),
+        )
+    return handler
+
+
+async def handler_err(request):
+    return web.Response(
+        status=500,
+        content_type='application/json',
+        body=json.dumps(SynseTestData.error).encode(),
+    )
+
+
+#
+# Test fixtures
+#
+
+@pytest.fixture
+def cli(loop, aiohttp_client):
+    app = web.Application()
+    app.router.add_get('/v3/config', make_handler('config'))
+    app.router.add_get('/v3/info/123', make_handler('info'))
+    app.router.add_get('/v3/plugin/123', make_handler('plugin'))
+    app.router.add_get('/v3/plugin', make_handler('plugins'))
+    app.router.add_get('/v3/plugin/health', make_handler('plugin_health'))
+    app.router.add_get('/v3/read', make_handler('read'))
+    app.router.add_get('/v3/read/123', make_handler('read_device'))
+    app.router.add_get('/v3/scan', make_handler('scan'))
+    app.router.add_get('/test', make_handler('status'))
+    app.router.add_get('/v3/tags', make_handler('tags'))
+    app.router.add_get('/v3/transaction/123', make_handler('transaction'))
+    app.router.add_get('/v3/transaction', make_handler('transactions'))
+    app.router.add_get('/version', make_handler('version'))
+    app.router.add_post('/v3/write/123', make_handler('write_async'))
+    app.router.add_post('/v3/write/wait/123', make_handler('write_sync'))
+    return loop.run_until_complete(aiohttp_client(app))
+
+
+@pytest.fixture
+def cli_err(loop, aiohttp_client):
+    app = web.Application()
+    app.router.add_get('/v3/config', handler_err)
+    app.router.add_get('/v3/info/123', handler_err)
+    app.router.add_get('/v3/plugin/123', handler_err)
+    app.router.add_get('/v3/plugin', handler_err)
+    app.router.add_get('/v3/plugin/health', handler_err)
+    app.router.add_get('/v3/read', handler_err)
+    app.router.add_get('/v3/read/123', handler_err)
+    app.router.add_get('/v3/scan', handler_err)
+    app.router.add_get('/test', handler_err)
+    app.router.add_get('/v3/tags', handler_err)
+    app.router.add_get('/v3/transaction/123', handler_err)
+    app.router.add_get('/v3/transaction', handler_err)
+    app.router.add_get('/version', handler_err)
+    app.router.add_post('/v3/write/123', handler_err)
+    app.router.add_post('/v3/write/wait/123', handler_err)
+    return loop.run_until_complete(aiohttp_client(app))
+
+
+@pytest.fixture
+def test_client(cli):
+    return client.HTTPClientV3(
+        host=cli.host,
+        port=cli.port,
+        session=cli.session,
+    )
+
+
+@pytest.fixture
+def test_client_err(cli_err):
+    return client.HTTPClientV3(
+        host=cli_err.host,
+        port=cli_err.port,
+        session=cli_err.session,
+    )
+
 
 @pytest.fixture(scope='module')
-def synse_response():
+def synse_data():
     return SynseTestData()
 
 
 @pytest.fixture()
-def mock_response():
-    with responses.RequestsMock() as rsps:
-        yield rsps
+def session():
+    return mock.Mock()
+
+
+@pytest.fixture()
+def loop():
+    return asyncio.get_event_loop()
+
+
+@pytest.fixture()
+def client_response(loop, session):
+    """Fixture to return a mocked client response."""
+
+    r = aiohttp.ClientResponse(
+        'get', URL('http://synse-response.io'),
+        request_info=mock.Mock(),
+        writer=mock.Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=loop,
+        session=session,
+    )
+
+    r.content = mock.Mock()
+    r._headers = {'Content-Type': 'application/json'}
+
+    return r

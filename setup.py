@@ -35,9 +35,10 @@ setup(
     python_requires='>=3.6',
     zip_safe=False,
     install_requires=[
+        'aiodns',
+        'aiohttp',
+        'cchardet',
         'iso8601',
-        'requests>=2.20.0',
-        'websockets',
     ],
     classifiers=[
         'Intended Audience :: Developers',
