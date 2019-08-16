@@ -30,7 +30,15 @@ lint:  ## Run linting checks on the project source code (isort, flake8, twine ch
 
 .PHONY: test
 test:  ## Run the project unit tests
-	tox
+	tox tests/unit
+
+.PHONY: integration
+integration:  ## Run the project integration tests
+	-docker-compose -f compose/integration.yaml rm -fsv
+	docker-compose -f compose/integration.yaml up -d
+	sleep 5
+	tox tests/integration || (docker-compose -f compose/integration.yaml stop; exit 1)
+	docker-compose -f compose/integration.yaml down
 
 .PHONY: version
 version:  ## Print the package version
