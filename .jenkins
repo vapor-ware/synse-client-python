@@ -19,7 +19,7 @@ pipeline {
 
     stage('Test') {
       steps {
-        sh 'tox'
+        sh 'tox tests/unit'
       }
     }
 
