@@ -1,0 +1,30 @@
+#
+# integration.yaml
+#
+# compose file for running integration tests against
+# synse server with emulator plugin.
+#
+
+version: '3'
+services:
+  synse-server:
+    container_name: synse-server
+    image: vaporio/synse-server:v3.0.0-alpha.6
+    ports:
+    - '5000:5000'
+    environment:
+      SYNSE_LOGGING: debug
+      SYNSE_PLUGIN_TCP: emulator:5001
+    links:
+    - emulator
+
+  emulator:
+    container_name: emulator
+    image: vaporio/emulator-plugin:3.0.0-alpha.4
+    expose:
+    - '5001'
+    command: ['--debug']
+    volumes:
+    - ./config:/tmp/devices
+    environment:
+      PLUGIN_DEVICE_CONFIG: /tmp/devices
