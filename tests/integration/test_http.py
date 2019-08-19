@@ -1,4 +1,6 @@
 
+import typing
+
 import pytest
 
 from synse import errors, models
@@ -304,8 +306,17 @@ class TestRead:
 
 
 class TestReadCache:
-    """"""
-    # TODO
+
+    async def test_ok(self):
+        resp = new_client().read_cache()
+
+        assert isinstance(resp, typing.AsyncGenerator)
+        data = [d async for d in resp]
+        assert len(data) != 0
+
+    async def test_connect_error(self):
+        with pytest.raises(errors.SynseError):
+            [x async for x in new_client('192.3.3.111').read_cache()]
 
 
 class TestReadDevice:
