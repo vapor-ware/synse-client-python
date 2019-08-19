@@ -263,7 +263,7 @@ class SynseTestData:
         },
     ]
 
-    read_cache = '{"device":"01976737-085c-5e4c-94bc-a383d3d130fb","timestamp":"2019-05-07T11:14:39Z","type":"state","device_type":"led","unit":null,"value":"off","context":{}}\n{"device":"01976737-085c-5e4c-94bc-a383d3d130fb","timestamp":"2019-05-07T11:14:39Z","type":"color","device_type":"led","unit":null,"value":"000000","context":{}}\n{"device":"b9324904-385b-581d-b790-5e53eaabfd20","timestamp":"2019-05-07T11:14:39Z","type":"temperature","device_type":"temperature","unit":{"name":"celsius","symbol":"C"},"value":58,"context":{}}'
+    read_cache = '{"device":"01976737-085c-5e4c-94bc-a383d3d130fb","timestamp":"2019-05-07T11:14:39Z","type":"state","device_type":"led","unit":null,"value":"off","context":{}}\n{"device":"01976737-085c-5e4c-94bc-a383d3d130fb","timestamp":"2019-05-07T11:14:39Z","type":"color","device_type":"led","unit":null,"value":"000000","context":{}}\n{"device":"b9324904-385b-581d-b790-5e53eaabfd20","timestamp":"2019-05-07T11:14:39Z","type":"temperature","device_type":"temperature","unit":{"name":"celsius","symbol":"C"},"value":58,"context":{}}\n'
 
     read_device = [
         {
@@ -357,7 +357,23 @@ async def handler_err(request):
         status=500,
         content_type='application/json',
         body=json.dumps(SynseTestData.error).encode(),
+        reason='handler err',
     )
+
+
+async def readcache_handler(request):
+    r = web.StreamResponse(
+        headers={
+            'Content-Type': 'application/json; encoding=utf-8',
+        },
+    )
+    await r.prepare(request)
+
+    for line in SynseTestData.read_cache.splitlines():
+        await r.write(f'{line}\n'.encode('utf-8'))
+
+    await r.write_eof()
+    return r
 
 
 #
@@ -373,6 +389,7 @@ def cli(loop, aiohttp_client):
     app.router.add_get('/v3/plugin', make_handler('plugins'))
     app.router.add_get('/v3/plugin/health', make_handler('plugin_health'))
     app.router.add_get('/v3/read', make_handler('read'))
+    app.router.add_get('/v3/readcache', readcache_handler)
     app.router.add_get('/v3/read/123', make_handler('read_device'))
     app.router.add_get('/v3/scan', make_handler('scan'))
     app.router.add_get('/test', make_handler('status'))
@@ -394,6 +411,7 @@ def cli_err(loop, aiohttp_client):
     app.router.add_get('/v3/plugin', handler_err)
     app.router.add_get('/v3/plugin/health', handler_err)
     app.router.add_get('/v3/read', handler_err)
+    app.router.add_get('/v3/readcache', handler_err)
     app.router.add_get('/v3/read/123', handler_err)
     app.router.add_get('/v3/scan', handler_err)
     app.router.add_get('/test', handler_err)

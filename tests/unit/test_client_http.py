@@ -1,5 +1,7 @@
 """Tests for the synse.client HTTP client implementation."""
 
+import typing
+
 import pytest
 
 from synse import client, errors, models
@@ -8,7 +10,8 @@ from synse import client, errors, models
 class TestHTTPClientV3:
     """Tests for the HTTPClientV3 class."""
 
-    def test_init(self) -> None:
+    @pytest.mark.asyncio
+    async def test_init(self) -> None:
         c = client.HTTPClientV3('localhost')
 
         assert c.session is not None
@@ -131,46 +134,23 @@ class TestHTTPClientV3:
     #         method='get',
     #         params=expected,
     #     )
-    #
-    # @pytest.mark.asyncio
-    # async def test_read_cache(self, mock_response, synse_response):
-    #     mock_response.add(
-    #         method='GET',
-    #         url='http://localhost:5000/v3/readcache',
-    #         body=synse_response.read_cache,
-    #         content_type='application/json',
-    #         stream=True,
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #
-    #     resp = await c.read_cache()
-    #
-    #     assert isinstance(resp, typing.Generator)
-    #     assert all(isinstance(elem, models.Reading) for elem in resp)
-    #
-    # @pytest.mark.asyncio
-    # async def test_read_cache_error(self, mock_response):
-    #     mock_response.add(
-    #         method='GET',
-    #         url='http://localhost:5000/v3/readcache',
-    #         status=500,
-    #         json={
-    #             'context': 'simulated error',
-    #         },
-    #         stream=True,
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #
-    #     resp = c.read_cache()
-    #
-    #     assert isinstance(resp, typing.Generator)
-    #
-    #     with pytest.raises(errors.ServerError) as e:
-    #         _ = [x for x in resp]
-    #     assert str(e.value) == 'simulated error'
-    #
+
+    async def test_read_cache(self, test_client):
+        resp = test_client.read_cache()
+
+        assert isinstance(resp, typing.AsyncGenerator)
+        data = [r async for r in resp]
+        assert len(data) == 3
+        assert all(isinstance(elem, models.Reading) for elem in data)
+
+    async def test_read_cache_error(self, test_client_err):
+        resp = test_client_err.read_cache()
+
+        assert isinstance(resp, typing.AsyncGenerator)
+        with pytest.raises(errors.ServerError) as e:
+            _ = [x async for x in resp]
+        assert str(e.value) == 'error: handler err'
+
     # @pytest.mark.asyncio
     # @pytest.mark.parametrize(
     #     'start,end,expected', [

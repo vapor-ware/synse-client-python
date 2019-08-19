@@ -4,7 +4,8 @@ import asyncio
 import itertools
 import json
 import logging
-from typing import Any, Generator, List, Mapping, Optional, Union
+from typing import (Any, AsyncGenerator, Coroutine, Generator, List, Mapping,
+                    Optional, Union)
 
 import aiohttp
 
@@ -43,6 +44,7 @@ class HTTPClientV3:
         self.loop = loop or asyncio.get_event_loop()
         self.host = host
         self.port = port
+        self.timeout = timeout
         self.session = session or aiohttp.ClientSession(
             loop=self.loop,
             timeout=aiohttp.ClientTimeout(
@@ -54,20 +56,36 @@ class HTTPClientV3:
         self.base = f'http://{host}:{port}'
         self.url = f'{self.base}/{self.api_version}'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'<Synse HTTP Client ({self.api_version}): {self.host}:{self.port}>'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
-    def sync(self, coro):
+    def __enter__(self) -> None:
+        raise TypeError('Synse HTTPClientV3 should be used with "async with" instead')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # This should always exist with __enter__, but will never be called here
+        # since __enter__ always raises.
+        pass
+
+    async def __aenter__(self) -> 'HTTPClientV3':
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
+    async def close(self):
+        """Close the client session."""
+        await self.session.close()
+
+    def sync(self, coro: Coroutine):
         """Run an asynchronous API call synchronously by wrapping it with this function.
 
         Examples:
             r = client.sync(client.status())
         """
-        # TODO need to figure out how to do this
-
         return self.loop.run_until_complete(coro)
 
     async def make_request(
@@ -83,7 +101,7 @@ class HTTPClientV3:
 
         This method is intended to only be used internally by the client. If
         finer-grained control over a request is desired, the client user may choose
-        to use this method over the defined API methods.
+        to use this method over the defined API methods at their own risk.
 
         Returns:
             The JSON response data marshaled into its Python type (dict or list).
@@ -92,7 +110,7 @@ class HTTPClientV3:
             errors.SynseError: An instance of a SynseError, wrapping any other error
             which may have occurred. An error will be raised if the client fails to
             make the request (e.g. connection issue, timeout, etc), or if the response
-            has a non-2XX status code.
+            has a non-2xx status code.
         """
 
         try:
@@ -108,6 +126,47 @@ class HTTPClientV3:
 
                     await errors.wrap_and_raise_for_error(resp)
                     return await resp.json()
+
+        except aiohttp.ClientError as e:
+            log.error(f'failed to issue request {method.upper()} {url} -> {e}')
+            raise errors.SynseError from e
+
+    async def stream_request(
+            self,
+            method: str,
+            url: str,
+            params: Optional[Mapping[str, str]] = None,
+            **kwargs,
+    ) -> AsyncGenerator[Union[dict, list], None]:
+        """A helper method to issue a request which will return a streamed response from
+        the configured Synse Server instance.
+
+        This method is intended to only be used internally by the client. If finer-grained
+        control over a request is desired, the user may choose to use this method over
+        the defined API methods at their own risk.
+
+        Returns:
+            The streamed response data.
+
+        Raises:
+            errors.SynseError: An instance of a SynseError, wrapping any other error
+            which may have occurred. An error will be raised if the client fails to
+            make the request (e.g. connection issue, timeout, etc), or if the response
+            has a non-2xx status code.
+        """
+
+        try:
+            async with self.session as session:
+                async with session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    **kwargs
+                ) as resp:
+
+                    await errors.wrap_and_raise_for_error(resp, resp.reason)
+                    async for chunk in resp.content:
+                        yield json.loads(chunk)
 
         except aiohttp.ClientError as e:
             log.error(f'failed to issue request {method.upper()} {url} -> {e}')
@@ -245,7 +304,7 @@ class HTTPClientV3:
             response,
         )
 
-    async def read_cache(self, start: str = None, end: str = None) -> Generator[models.Reading, None, None]:
+    async def read_cache(self, start: str = None, end: str = None) -> AsyncGenerator[models.Reading, None]:
         """Get a window of cached device readings.
 
         Args:
@@ -269,17 +328,17 @@ class HTTPClientV3:
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await self.make_request(
+        response = self.stream_request(
             url=f'{self.url}/readcache',
             method=GET,
-            stream=True,
             params=params,
         )
 
-        # TODO: need to update read_cache for aiohttp
-        for chunk in response.iter_lines():
-            raw = json.loads(chunk)
-            yield models.Reading(response, raw)
+        async for data in response:
+            yield models.make_response(
+                models.Reading,
+                data,
+            )
 
     async def read_device(self, device: str) -> List[models.Reading]:
         """Get the latest reading(s) for the specified device.
