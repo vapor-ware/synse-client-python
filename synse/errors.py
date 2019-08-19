@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 
 import aiohttp
 
@@ -42,7 +43,7 @@ code_to_err = {
 }
 
 
-async def wrap_and_raise_for_error(response: aiohttp.ClientResponse) -> None:
+async def wrap_and_raise_for_error(response: aiohttp.ClientResponse, body: Any = None) -> None:
     """Check if the response failed with a non-2XX status code.
 
     If the response has a non-2XX error code, wrap it in the appropriate
@@ -50,15 +51,24 @@ async def wrap_and_raise_for_error(response: aiohttp.ClientResponse) -> None:
 
     Args:
         response: The response to check for a non-OK status.
+        body: The data which provides context for the error. If this is
+            not specified, the function will attempt to load it from
+            response.text(), and fall back to response.reason. Note that this
+            behavior is undesirable in some cases, such as for handling streamed
+            responses, as calling response.text() will prevent the content from
+            being loaded correctly. In such cases, a non-None body must be
+            provided.
 
     Raises:
         SynseError: The response had a non-2XX error code.
     """
-    try:
-        body = await response.text()
-    except Exception as e:
-        log.debug('unable to get response text: {}'.format(e))
-        body = response.reason
+
+    if body is None:
+        try:
+            body = await response.text()
+        except Exception as e:
+            log.info('unable to get response text: {}'.format(e))
+            body = response.reason
 
     try:
         response.raise_for_status()
@@ -70,7 +80,7 @@ async def wrap_and_raise_for_error(response: aiohttp.ClientResponse) -> None:
                 data = json.loads(body)
             except Exception as e:
                 log.error(f'failed to parse response JSON: {e}')
-                raise error_cls from e
+                raise error_cls(f'error: {body}') from e
             else:
                 raise error_cls(data.get('context')) from e
         raise SynseError from e
