@@ -4,6 +4,7 @@ import typing
 
 import asynctest
 import pytest
+from multidict import MultiDict
 
 from synse import client, errors, models
 
@@ -117,6 +118,7 @@ class TestHTTPClientV3:
             ('foo', ['vapor'], {'ns': 'foo', 'tags': 'vapor'}),
             ('foo', ['vapor', 'a/b'], {'ns': 'foo', 'tags': 'vapor,a/b'}),
             ('foo', ['vapor', 'a/b', '1/2:3'], {'ns': 'foo', 'tags': 'vapor,a/b,1/2:3'}),
+            ('foo', [['foo'], ['bar']], MultiDict([('tags', 'foo'), ('tags', 'bar'), ('ns', 'foo')])),
         ]
     )
     async def test_read_params(self, ns, tags, expected):
@@ -206,7 +208,7 @@ class TestHTTPClientV3:
     @pytest.mark.parametrize(
         'force,ns,sort,tags,expected', [
             (None, None, None, None, {}),
-            (False, None, None, None, {'force': 'False'}),
+            (False, None, None, None, {}),
             (True, None, None, None, {'force': 'True'}),
             ('other', None, None, None, {'force': 'other'}),
             (None, 'default', None, None, {'ns': 'default'}),
@@ -219,6 +221,7 @@ class TestHTTPClientV3:
             (None, None, 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
             (None, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
             (True, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'force': 'True', 'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
+            (None, 'foo', None, [['foo'], ['bar']], MultiDict([('tags', 'foo'), ('tags', 'bar'), ('ns', 'foo')])),
         ]
     )
     async def test_scan_params(self, force, ns, sort, tags, expected):

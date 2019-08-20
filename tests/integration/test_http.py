@@ -283,6 +283,38 @@ class TestRead:
         for dev in expected:
             assert dev in devices
 
+    async def test_ok_multiple_tag_groups_match(self):
+        expected = (
+            device_led,
+            device_temp_1,
+            device_temp_2,
+            device_temp_4,
+        )
+
+        resp = await new_client().read(tags=[
+            ['foo/bar'],
+            [f'system/id:{device_temp_4}'],
+        ])
+
+        assert isinstance(resp, list)
+        assert len(resp) == 5  # 1 reading per temp device, 2 per led device
+
+        led_count, temp_count, devices = 0, 0, set()
+        for reading in resp:
+            devices.add(reading.device)
+            if reading.device_type == 'temperature':
+                temp_count += 1
+            elif reading.device_type == 'led':
+                led_count += 1
+            else:
+                pytest.fail('unexpected reading device type in response')
+
+        assert led_count == 2
+        assert temp_count == 3
+        assert len(expected) == len(devices)
+        for dev in expected:
+            assert dev in devices
+
     async def test_ok_single_tag_no_match(self):
         resp = await new_client().read(tags=[
             'not-a-tag',
@@ -294,7 +326,21 @@ class TestRead:
     async def test_ok_multiple_tags_no_match(self):
         resp = await new_client().read(tags=[
             'foo/bar',
-            f'system/id:{device_temp_4}'
+            f'system/id:{device_temp_4}',
+        ])
+
+        assert isinstance(resp, list)
+        assert len(resp) == 0
+
+    async def test_ok_multiple_tag_groups_no_match(self):
+        resp = await new_client().read(tags=[
+            [
+                'foo/bar',
+                f'system/id:{device_temp_4}',
+            ],
+            [
+                'not-a-tag',
+            ],
         ])
 
         assert isinstance(resp, list)
@@ -380,6 +426,28 @@ class TestScan:
 
         assert isinstance(resp, list)
         assert len(resp) == 3
+        for item in resp:
+            assert isinstance(item, models.DeviceSummary)
+            assert item.id in expected
+            assert item.type in ('temperature', 'led')
+
+    async def test_ok_with_multiple_tag_groups(self):
+        expected = (
+            device_led,
+            device_temp_1,
+            device_temp_2,
+            device_temp_4,
+        )
+
+        resp = await new_client().scan(
+            tags=[
+                ['foo/bar'],
+                [f'system/id:{device_temp_4}'],
+            ]
+        )
+
+        assert isinstance(resp, list)
+        assert len(resp) == 4
         for item in resp:
             assert isinstance(item, models.DeviceSummary)
             assert item.id in expected
