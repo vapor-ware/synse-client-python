@@ -1,7 +1,5 @@
 asynctest
 pytest
 pytest-cov
-pytest-mock
 pytest-asyncio
 pytest-aiohttp
-responses
