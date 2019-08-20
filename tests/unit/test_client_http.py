@@ -2,6 +2,7 @@
 
 import typing
 
+import asynctest
 import pytest
 
 from synse import client, errors, models
@@ -106,36 +107,33 @@ class TestHTTPClientV3:
 
         assert str(e.value) == 'error context'
 
-    #
-    # @pytest.mark.asyncio
-    # @pytest.mark.parametrize(
-    #     'ns,tags,expected', [
-    #         (None, None, {}),
-    #         ('default', None, {'ns': 'default'}),
-    #         ('foo', None, {'ns': 'foo'}),
-    #         (None, ['vapor'], {'tags': 'vapor'}),
-    #         ('foo', ['vapor'], {'ns': 'foo', 'tags': 'vapor'}),
-    #         ('foo', ['vapor', 'a/b'], {'ns': 'foo', 'tags': 'vapor,a/b'}),
-    #         ('foo', ['vapor', 'a/b', '1/2:3'], {'ns': 'foo', 'tags': 'vapor,a/b,1/2:3'}),
-    #     ]
-    # )
-    # async def test_read_params(self, mocker, ns, tags, expected):
-    #     mock_request = mocker.patch(
-    #         'synse.client.HTTPClientV3.make_request',
-    #         returns=requests.Response()
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #     _ = await c.read(ns=ns, tags=tags)
-    #
-    #     mock_request.assert_called_once()
-    #     mock_request.assert_called_with(
-    #         url='http://localhost:5000/v3/read',
-    #         method='get',
-    #         params=expected,
-    #     )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'ns,tags,expected', [
+            (None, None, {}),
+            ('default', None, {'ns': 'default'}),
+            ('foo', None, {'ns': 'foo'}),
+            (None, ['vapor'], {'tags': 'vapor'}),
+            ('foo', ['vapor'], {'ns': 'foo', 'tags': 'vapor'}),
+            ('foo', ['vapor', 'a/b'], {'ns': 'foo', 'tags': 'vapor,a/b'}),
+            ('foo', ['vapor', 'a/b', '1/2:3'], {'ns': 'foo', 'tags': 'vapor,a/b,1/2:3'}),
+        ]
+    )
+    async def test_read_params(self, ns, tags, expected):
+        with asynctest.patch('synse.client.HTTPClientV3.make_request') as mock_request:
+            mock_request.returns = []
 
-    async def test_read_cache(self, test_client):
+            c = client.HTTPClientV3('localhost')
+            _ = await c.read(ns=ns, tags=tags)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            url='http://localhost:5000/v3/read',
+            method='get',
+            params=expected,
+        )
+
+    async def test_read_cache(self, test_client) -> None:
         resp = test_client.read_cache()
 
         assert isinstance(resp, typing.AsyncGenerator)
@@ -143,7 +141,7 @@ class TestHTTPClientV3:
         assert len(data) == 3
         assert all(isinstance(elem, models.Reading) for elem in data)
 
-    async def test_read_cache_error(self, test_client_err):
+    async def test_read_cache_error(self, test_client_err) -> None:
         resp = test_client_err.read_cache()
 
         assert isinstance(resp, typing.AsyncGenerator)
@@ -151,31 +149,32 @@ class TestHTTPClientV3:
             _ = [x async for x in resp]
         assert str(e.value) == 'error: handler err'
 
-    # @pytest.mark.asyncio
-    # @pytest.mark.parametrize(
-    #     'start,end,expected', [
-    #         (None, None, {}),
-    #         ('timestamp-1', None, {'start': 'timestamp-1'}),
-    #         (None, 'timestamp-1', {'end': 'timestamp-1'}),
-    #         ('timestamp-1', 'timestamp-2', {'start': 'timestamp-1', 'end': 'timestamp-2'}),
-    #     ]
-    # )
-    # async def test_read_cache_params(self, mocker, start, end, expected):
-    #     mock_request = mocker.patch(
-    #         'synse.client.HTTPClientV3.make_request',
-    #         returns=requests.Response()
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #     _ = [x for x in c.read_cache(start=start, end=end)]
-    #
-    #     mock_request.assert_called_once()
-    #     mock_request.assert_called_with(
-    #         url='http://localhost:5000/v3/readcache',
-    #         method='get',
-    #         stream=True,
-    #         params=expected,
-    #     )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'start,end,expected', [
+            (None, None, {}),
+            ('timestamp-1', None, {'start': 'timestamp-1'}),
+            (None, 'timestamp-1', {'end': 'timestamp-1'}),
+            ('timestamp-1', 'timestamp-2', {'start': 'timestamp-1', 'end': 'timestamp-2'}),
+        ]
+    )
+    async def test_read_cache_params(self, start, end, expected):
+        async def side_effect(*args, **kwargs):
+            for i in range(10):
+                yield {}
+
+        with asynctest.patch('synse.client.HTTPClientV3.stream_request') as mock_request:
+            mock_request.side_effect = side_effect
+
+            c = client.HTTPClientV3('localhost')
+            _ = [x async for x in c.read_cache(start=start, end=end)]
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            url='http://localhost:5000/v3/readcache',
+            method='get',
+            params=expected,
+        )
 
     async def test_read_device(self, test_client, synse_data) -> None:
         resp = await test_client.read_device('123')
@@ -203,40 +202,38 @@ class TestHTTPClientV3:
 
         assert str(e.value) == 'error context'
 
-    # @pytest.mark.asyncio
-    # @pytest.mark.parametrize(
-    #     'force,ns,sort,tags,expected', [
-    #         (None, None, None, None, {}),
-    #         (False, None, None, None, {'force': 'False'}),
-    #         (True, None, None, None, {'force': 'True'}),
-    #         ('other', None, None, None, {'force': 'other'}),
-    #         (None, 'default', None, None, {'ns': 'default'}),
-    #         (None, 'foo', None, None, {'ns': 'foo'}),
-    #         (None, None, 'id,type', None, {'sort': 'id,type'}),
-    #         (None, None, 'id', None, {'sort': 'id'}),
-    #         (None, None, None, ['vapor'], {'tags': 'vapor'}),
-    #         (None, None, None, ['vapor', 'foo/bar'], {'tags': 'vapor,foo/bar'}),
-    #         (None, None, None, ['vapor', 'foo/bar', 'a/b:c'], {'tags': 'vapor,foo/bar,a/b:c'}),
-    #         (None, None, 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
-    #         (None, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
-    #         (True, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'force': 'True', 'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
-    #     ]
-    # )
-    # async def test_scan_params(self, mocker, force, ns, sort, tags, expected):
-    #     mock_request = mocker.patch(
-    #         'synse.client.HTTPClientV3.make_request',
-    #         returns=requests.Response()
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #     _ = await c.scan(force=force, ns=ns, sort=sort, tags=tags)
-    #
-    #     mock_request.assert_called_once()
-    #     mock_request.assert_called_with(
-    #         url='http://localhost:5000/v3/scan',
-    #         method='get',
-    #         params=expected,
-    #     )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'force,ns,sort,tags,expected', [
+            (None, None, None, None, {}),
+            (False, None, None, None, {'force': 'False'}),
+            (True, None, None, None, {'force': 'True'}),
+            ('other', None, None, None, {'force': 'other'}),
+            (None, 'default', None, None, {'ns': 'default'}),
+            (None, 'foo', None, None, {'ns': 'foo'}),
+            (None, None, 'id,type', None, {'sort': 'id,type'}),
+            (None, None, 'id', None, {'sort': 'id'}),
+            (None, None, None, ['vapor'], {'tags': 'vapor'}),
+            (None, None, None, ['vapor', 'foo/bar'], {'tags': 'vapor,foo/bar'}),
+            (None, None, None, ['vapor', 'foo/bar', 'a/b:c'], {'tags': 'vapor,foo/bar,a/b:c'}),
+            (None, None, 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
+            (None, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
+            (True, 'foo', 'id,type', ['vapor', 'foo/bar', 'a/b:c'], {'force': 'True', 'ns': 'foo', 'sort': 'id,type', 'tags': 'vapor,foo/bar,a/b:c'}),
+        ]
+    )
+    async def test_scan_params(self, force, ns, sort, tags, expected):
+        with asynctest.patch('synse.client.HTTPClientV3.make_request') as mock_request:
+            mock_request.returns = []
+
+            c = client.HTTPClientV3('localhost')
+            _ = await c.scan(force=force, ns=ns, sort=sort, tags=tags)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            url='http://localhost:5000/v3/scan',
+            method='get',
+            params=expected,
+        )
 
     async def test_status(self, test_client, synse_data) -> None:
         resp = await test_client.status()
@@ -263,33 +260,31 @@ class TestHTTPClientV3:
 
         assert str(e.value) == 'error context'
 
-    # @pytest.mark.asyncio
-    # @pytest.mark.parametrize(
-    #     'ns,ids,expected', [
-    #         (None, None, {}),
-    #         ('default', None, {'ns': 'default'}),
-    #         ('foo', None, {'ns': 'foo'}),
-    #         (None, True, {'ids': 'True'}),
-    #         (None, False, {'ids': 'False'}),
-    #         (None, 'other', {'ids': 'other'}),
-    #         ('default', False, {'ns': 'default', 'ids': 'False'}),
-    #     ]
-    # )
-    # async def test_tags_params(self, mocker, ns, ids, expected):
-    #     mock_request = mocker.patch(
-    #         'synse.client.HTTPClientV3.make_request',
-    #         returns=requests.Response()
-    #     )
-    #
-    #     c = client.HTTPClientV3('localhost')
-    #     _ = await c.tags(ns=ns, ids=ids)
-    #
-    #     mock_request.assert_called_once()
-    #     mock_request.assert_called_with(
-    #         url='http://localhost:5000/v3/tags',
-    #         method='get',
-    #         params=expected,
-    #     )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'ns,ids,expected', [
+            (None, None, {}),
+            ('default', None, {'ns': 'default'}),
+            ('foo', None, {'ns': 'foo'}),
+            (None, True, {'ids': 'true'}),
+            (None, False, {}),
+            (None, 'other', {'ids': 'true'}),
+            ('default', False, {'ns': 'default'}),
+        ]
+    )
+    async def test_tags_params(self, ns, ids, expected):
+        with asynctest.patch('synse.client.HTTPClientV3.make_request') as mock_request:
+            mock_request.returns = []
+
+            c = client.HTTPClientV3('localhost')
+            _ = await c.tags(ns=ns, ids=ids)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            url='http://localhost:5000/v3/tags',
+            method='get',
+            params=expected,
+        )
 
     async def test_transaction(self, test_client, synse_data) -> None:
         resp = await test_client.transaction('123')
