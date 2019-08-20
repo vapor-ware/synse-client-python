@@ -39,6 +39,7 @@ setup(
         'aiohttp',
         'cchardet',
         'iso8601',
+        'multidict',
     ],
     classifiers=[
         'Intended Audience :: Developers',

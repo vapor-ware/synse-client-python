@@ -5,11 +5,12 @@ import itertools
 import json
 import logging
 from typing import (Any, AsyncGenerator, Coroutine, Generator, List, Mapping,
-                    Optional, Union)
+                    Optional, Sequence, Union)
 
 import aiohttp
+from multidict import MultiDict
 
-from synse import errors, models
+from synse import errors, models, utils
 
 log = logging.getLogger('synse')
 
@@ -76,7 +77,7 @@ class HTTPClientV3:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.close()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the client session."""
         await self.session.close()
 
@@ -273,13 +274,21 @@ class HTTPClientV3:
             response,
         )
 
-    async def read(self, ns: str = None, tags: List[str] = None) -> List[models.Reading]:
+    async def read(
+            self,
+            ns: str = None,
+            tags: Union[str, Sequence[str], Sequence[Sequence[str]]] = None,
+    ) -> List[models.Reading]:
         """Get the latest reading(s) for all devices which match the specified selector(s).
 
         Args:
-            ns (str): The default namespace to use for the tags which do not
+            ns: The default namespace to use for the tags which do not
                 include a namespace. (default: default)
-            tags (list[str]): The tags to filter devices on.
+            tags: The tags to filter devices on. Tags may be specified in multiple ways.
+                A single string (e.g. 'foo/bar') will be taken as a single tag group. Multiple
+                strings (e.g. ['foo/bar', 'abc/123']) will be taken as a single tag group.
+                Multiple collections of strings (e.g. [['foo/bar'], ['abc/123', 'def/456']])
+                will be taken as multiple tag groups.
 
         Returns:
             The Synse v3 API read response.
@@ -288,11 +297,10 @@ class HTTPClientV3:
             https://synse.readthedocs.io/en/latest/server/api.v3/#read
         """
 
-        params = {
-            'ns': ns,
-            'tags': ','.join(tags) if tags else None,
-        }
-        params = {k: v for k, v in params.items() if v is not None}
+        params = MultiDict()
+        utils.tag_params(tags, params)
+        if ns:
+            params.add('ns', ns)
 
         response = await self.make_request(
             url=f'{self.url}/read',
@@ -322,11 +330,11 @@ class HTTPClientV3:
             https://synse.readthedocs.io/en/latest/server/api.v3/#read-cache
         """
 
-        params = {
-            'start': start,
-            'end': end,
-        }
-        params = {k: v for k, v in params.items() if v is not None}
+        params = MultiDict()
+        if start:
+            params.add('start', start)
+        if end:
+            params.add('end', end)
 
         response = self.stream_request(
             url=f'{self.url}/readcache',
@@ -363,7 +371,11 @@ class HTTPClientV3:
         )
 
     async def scan(
-            self, force: bool = None, ns: str = None, sort: str = None, tags: List[str] = None,
+            self,
+            force: bool = None,
+            ns: str = None,
+            sort: str = None,
+            tags: Union[str, Sequence[str], Sequence[Sequence[str]]] = None,
     ) -> List[models.DeviceSummary]:
         """Get a summary of all devices currently exposed by the Synse Server instance.
 
@@ -379,7 +391,11 @@ class HTTPClientV3:
                 "tags" field can not be used for sorting. (default:
                 "plugin,sort_index,id", where the sort_index is an internal sort
                 preference which a plugin can optionally specify.)
-            tags (list[str]): The tags to filter devices on.
+            tags: The tags to filter devices on. Tags may be specified in multiple ways.
+                A single string (e.g. 'foo/bar') will be taken as a single tag group. Multiple
+                strings (e.g. ['foo/bar', 'abc/123']) will be taken as a single tag group.
+                Multiple collections of strings (e.g. [['foo/bar'], ['abc/123', 'def/456']])
+                will be taken as multiple tag groups.
 
         Returns:
             The Synse v3 API scan response.
@@ -388,13 +404,14 @@ class HTTPClientV3:
             https://synse.readthedocs.io/en/latest/server/api.v3/#scan
         """
 
-        params = {
-            'force': str(force) if force is not None else None,
-            'ns': ns,
-            'sort': sort,
-            'tags': ','.join(tags) if tags else None,
-        }
-        params = {k: v for k, v in params.items() if v is not None}
+        params = MultiDict()
+        utils.tag_params(tags, params)
+        if ns:
+            params.add('ns', ns)
+        if force:
+            params.add('force', str(force))
+        if sort:
+            params.add('sort', sort)
 
         response = await self.make_request(
             url=f'{self.url}/scan',
@@ -428,13 +445,13 @@ class HTTPClientV3:
             response,
         )
 
-    async def tags(self, ns: str = None, ids: bool = False) -> List[str]:
+    async def tags(self, ns: Union[str, Sequence[str]] = None, ids: bool = False) -> List[str]:
         """Get a list of the tags currently associated with registered devices.
 
         Args:
-            ns (str): The tag namespace(s) to use when searching for tags.
+            ns: The tag namespace(s) to use when searching for tags.
                 (default: default)
-            ids (bool): Include ID tags in the response. (default: false)
+            ids: Include ID tags in the response. (default: false)
 
         Returns:
             The Synse v3 API tags response.
@@ -443,11 +460,11 @@ class HTTPClientV3:
             https://synse.readthedocs.io/en/latest/server/api.v3/#tags
         """
 
-        params = {
-            'ns': ns,
-            'ids': 'true' if ids else None,
-        }
-        params = {k: v for k, v in params.items() if v is not None}
+        params = MultiDict()
+        if ns:
+            params.add('ns', ns)
+        if ids:
+            params.add('ids', 'true')
 
         response = await self.make_request(
             url=f'{self.url}/tags',
