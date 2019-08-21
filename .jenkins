@@ -28,7 +28,7 @@ pipeline {
         buildingTag()
       }
       steps {
-        sh 'python setup.py sdist bdist_wheel'
+        sh 'python setup.py sdist'
       }
     }
 
