@@ -91,6 +91,7 @@ def test_response_device_summary() -> None:
         'alias': 'vaporio',
         'plugin': '456',
         'type': 'test',
+        'metadata': {'foo': 'bar'}
     }
 
     resp = models.make_response(models.DeviceSummary, response)
@@ -102,6 +103,7 @@ def test_response_device_summary() -> None:
     assert resp.plugin == '456'
     assert resp.tags is None
     assert resp.type == 'test'
+    assert resp.metadata == {'foo': 'bar'}
 
     assert resp._data == response
 
