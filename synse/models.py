@@ -114,6 +114,7 @@ class DeviceSummary(BaseResponse):
         self.alias = None
         self.id = None
         self.info = None
+        self.metadata = None
         self.plugin = None
         self.tags = None
         self.type = None
