@@ -115,18 +115,17 @@ class HTTPClientV3:
         """
 
         try:
-            async with self.session as session:
-                async with session.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    data=data,
-                    json=json,
-                    **kwargs,
-                ) as resp:
+            async with self.session.request(
+                method=method,
+                url=url,
+                params=params,
+                data=data,
+                json=json,
+                **kwargs,
+            ) as resp:
 
-                    await errors.wrap_and_raise_for_error(resp)
-                    return await resp.json()
+                await errors.wrap_and_raise_for_error(resp)
+                return await resp.json()
 
         except aiohttp.ClientError as e:
             log.error(f'failed to issue request {method.upper()} {url} -> {e}')
