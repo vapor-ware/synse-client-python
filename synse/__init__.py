@@ -1,7 +1,7 @@
 """synse - a Python client for interacting with Synse Server."""
 
 __title__ = 'synse'
-__version__ = '3.0.0-alpha.5'
+__version__ = '3.0.0-alpha.6'
 __description__ = 'The official Python client for interacting with the Synse Server API.'
 __author__ = 'Vapor IO'
 __author_email__ = 'erick@vapor.io'

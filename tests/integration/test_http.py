@@ -362,7 +362,7 @@ class TestReadCache:
 
     async def test_connect_error(self):
         with pytest.raises(errors.SynseError):
-            [x async for x in new_client('192.3.3.111').read_cache()]
+            _ = [x async for x in new_client('192.3.3.111').read_cache()]
 
 
 class TestReadDevice:
