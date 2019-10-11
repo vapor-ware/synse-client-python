@@ -15,6 +15,10 @@ clean:  ## Clean up build artifacts
 deps:  ## Update the frozen pip dependencies (requirements.txt)
 	tox -e deps
 
+.PHONY: docs
+docs:  ## Build project documentation locally
+	tox -e docs
+
 .PHONY: fmt
 fmt:  ## Automatic source code formatting (isort, autopep8)
 	tox -e fmt
@@ -27,6 +31,10 @@ github-tag:  ## Create and push a GitHub tag with the current version
 .PHONY: lint
 lint:  ## Run linting checks on the project source code (isort, flake8, twine check)
 	tox -e lint
+
+.PHONY: serve
+serve:  ## Serve project documentation locally
+	tox -e serve
 
 .PHONY: test
 test:  ## Run the project unit tests
