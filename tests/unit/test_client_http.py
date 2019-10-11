@@ -23,6 +23,31 @@ class TestHTTPClientV3:
         assert c.url == 'http://localhost:5000/v3'
 
     @pytest.mark.asyncio
+    async def test_str(self) -> None:
+        c = client.HTTPClientV3('localhost')
+
+        assert str(c) == '<Synse HTTP Client (v3): localhost:5000>'
+        assert str([c]) == '[<Synse HTTP Client (v3): localhost:5000>]'
+
+    @pytest.mark.asyncio
+    async def test_context(self) -> None:
+        c = client.HTTPClientV3('localhost')
+
+        with pytest.raises(TypeError):
+            with c:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_async_context(self) -> None:
+        c = client.HTTPClientV3('localhost')
+        assert c.session.closed is False
+
+        async with c:
+            pass
+
+        assert c.session.closed is True
+
+    @pytest.mark.asyncio
     async def test_make_request_error(self) -> None:
         # The request will return a connection error (an instance of
         # RequestException) if the fetched URL doesn't hit a match.

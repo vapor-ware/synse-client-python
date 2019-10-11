@@ -4,8 +4,9 @@ import asyncio
 import itertools
 import json
 import logging
+from types import TracebackType
 from typing import (Any, AsyncGenerator, Coroutine, Generator, List, Mapping,
-                    Optional, Sequence, Union)
+                    Optional, Sequence, Type, Union)
 
 import aiohttp
 from multidict import MultiDict
@@ -79,7 +80,8 @@ class HTTPClientV3:
 
     async def close(self) -> None:
         """Close the client session."""
-        await self.session.close()
+        if not self.session.closed:
+            await self.session.close()
 
     def sync(self, coro: Coroutine):
         """Run an asynchronous API call synchronously by wrapping it with this function.
@@ -596,47 +598,6 @@ class HTTPClientV3:
         )
 
 
-# class WSSession:
-#     """A class which models a WebSocket 'session'.
-#
-#     For the Synse API, each WebSocket message is sent with an ID which allows it
-#     to match requests to responses. Each session is in charge of managing the
-#     request IDs for sent events. By default, each client will have its own session.
-#     """
-#
-#     def __init__(self, host, port, api_version):
-#         self.host = host
-#         self.port = port
-#         self.api_version = api_version
-#
-#         self.connect_url = f'ws://{host}:{port}/{api_version}/connect'
-#         self._id = itertools.count()
-#         self._lock = asyncio.Lock()
-#
-#     async def _next(self):
-#         async with self._lock:
-#             return next(self._id)
-#
-#     async def request(self, event, data=None):
-#         try:
-#             async with websockets.connect(self.connect_url) as ws:
-#                 message = {
-#                     'id': await self._next(),
-#                     'event': event,
-#                 }
-#                 if data:
-#                     message['data'] = data
-#
-#                 await ws.send(json.dumps(message))
-#
-#                 response = await ws.recv()
-#                 print(f'response ({type(response)}): {response}')
-#                 return json.loads(response)
-#         except ConnectionError as e:
-#             log.error(f'failed to issue request {event} {self.host}:{self.port} -> {e}')
-#             raise errors.SynseError from e
-
-
 class WebsocketClientV3:
     """A WebSocket client for Synse Server's v3 API.
 
@@ -664,37 +625,91 @@ class WebsocketClientV3:
             loop=self.loop,
         )
 
-        self.connect_url = f'http://{host}:{port}/{self.api_version}/connect'
+        self.connect_url = f'ws://{host}:{port}/{self.api_version}/connect'
 
-        # The WebSocket connection to use. This is created lazily whenever the first
-        # call is made. It should be accessed by the `ws` property.
-        self._ws = None
+        # The WebSocket connection to use. This is created when using the WebsocketClient
+        # as a context manager, or it must be created manually with the `connect` method.
+        # This should be accessed via the `connection` property, which will raise an error
+        # if this is None, indicating that client methdods are being used before it connected.
+        self._connection = None
 
         self._id_iter = itertools.count()
         self._id_lock = asyncio.Lock()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'<Synse WebSocket Client ({self.api_version}): {self.host}:{self.port}>'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
-    async def _next_id(self):
+    def __enter__(self) -> None:
+        raise TypeError('Synse WebsocketClientV3 should be used with "async with" instead')
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        # This should always exist with __enter__, but will never be called here
+        # since __enter__ always raises.
+        pass
+
+    async def __aenter__(self) -> 'WebsocketClientV3':
+        await self.connect()
+        return self
+
+    async def __aexit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[TracebackType],
+    ) -> None:
+        await self.close()
+
+    @property
+    def connection(self):
+        if self._connection is None:
+            raise RuntimeError(
+                'The WebSocket client has not connected. Use the client as a context'
+                'manager or directly invoke the "connect" method prior to use.'
+            )
+        return self._connection
+
+    async def close(self) -> None:
+        """Close the WebSocket client session."""
+        if not self.session.closed:
+            await self.session.close()
+
+    async def _next_id(self) -> int:
         """Get the next message ID number."""
         async with self._id_lock:
             return next(self._id_iter)
 
-    async def ws(self):
-        """Get the WebSocket connection."""
-        if self._ws is None:
-            self._ws = await self.session.ws_connect(
-                url=self.connect_url,
-            )
-        return self._ws
+    async def connect(self):
+        """Establish a WebSocket client connection with Synse Server."""
+        if self._connection is None:
+            try:
+                self._connection = await self.session.ws_connect(
+                    url=self.connect_url,
+                )
+            except aiohttp.ClientError as e:
+                log.error(f'failed to connect to Synse Server websocket endpoint: {e}')
+                raise errors.SynseError from e
 
-    async def request(self, event, data=None):
-        """"""
-        ws = await self.ws()
+        return self._connection
+
+    async def request(self, event, data=None) -> Union[dict, list]:
+        """A helper method to issue a WebSocket API request to the configured Synse Server instance.
+
+        This method is intended to only be used internally by the client. If
+        finer-grained control over a request is desired, the client user may choose
+        to use this method over the defined API methods at their own risk.
+
+        Returns:
+            The JSON response data marshaled into its Python type (e.g., dict or list).
+
+        Raises:
+            errors.SynseError: An instance of a SynseError, wrapping any other error
+            which may have occurred. An error will be raised if the client fails to
+            make the request (e.g. connection issue, timeout, etc).
+        """
+        ws = self.connection
         req = {
             'id': await self._next_id(),
             'event': event,
@@ -702,15 +717,33 @@ class WebsocketClientV3:
         if data:
             req['data'] = data
 
-        await ws.send(json.dumps(req))
+        await ws.send_str(json.dumps(req))
 
         resp = await ws.receive()
         if resp.type == aiohttp.WSMsgType.text:
-            return resp.json()
+            msg = resp.json()
+            if msg['event'] == 'response/error':
+                log.debug(f'error response from Synse Server: {msg}')
+                status = msg['data']['http_code']
+                desc = msg['data'].get('description', '')
+                ctx = msg['data'].get('context', 'no context available')
+
+                err = f'{desc} [{status}]: {ctx}'
+                if status == 404:
+                    raise errors.NotFound(err)
+                elif status == 400:
+                    raise errors.InvalidInput(err)
+                else:
+                    raise errors.SynseError(err)
+            else:
+                return msg
+
         elif resp.type == aiohttp.WSMsgType.closed:
             raise errors.SynseError('WebSocket connection closed: {}'.format(resp.extra))
         elif resp.type == aiohttp.WSMsgType.error:
             raise errors.SynseError('WebSocket error: {} : {}'.format(resp.data, resp.extra))
+        else:
+            raise errors.SynseError(f'Unexpected WebSocket response: {resp}')
 
     async def config(self) -> models.Config:
         """Get the unified configuration for the Synse Server instance.
@@ -732,7 +765,7 @@ class WebsocketClientV3:
         """Get all information associated with the specified device.
 
         Args:
-            device (str): The ID of the device to get information for.
+            device: The ID of the device to get information for.
 
         Returns:
             The Synse v3 API info response.
@@ -753,7 +786,7 @@ class WebsocketClientV3:
         """Get all information associated with the specified plugin.
 
         Args:
-            plugin_id (str): The ID of the plugin to get information for.
+            plugin_id: The ID of the plugin to get information for.
 
         Returns:
             The Synse v3 API plugin response.
@@ -802,13 +835,21 @@ class WebsocketClientV3:
             r['data'],
         )
 
-    async def read(self, ns: str = None, tags: List[str] = None) -> List[models.Reading]:
+    async def read(
+            self,
+            ns: str = None,
+            tags: Union[str, Sequence[str], Sequence[Sequence[str]]] = None,
+    ) -> List[models.Reading]:
         """Get the latest reading(s) for all devices which match the specified selector(s).
 
         Args:
-            ns (str): The default namespace to use for the tags which do not
+            ns: The default namespace to use for the tags which do not
                 include a namespace. (default: default)
-            tags (list[str]): The tags to filter devices on.
+            tags: The tags to filter devices on. Tags may be specified in multiple ways.
+                A single string (e.g. 'foo/bar') will be taken as a single tag group. Multiple
+                strings (e.g. ['foo/bar', 'abc/123']) will be taken as a single tag group.
+                Multiple collections of strings (e.g. [['foo/bar'], ['abc/123', 'def/456']])
+                will be taken as multiple tag groups.
 
         Returns:
             The Synse v3 API read response.
@@ -833,10 +874,10 @@ class WebsocketClientV3:
         """Get a window of cached device readings.
 
         Args:
-            start (str): An RFC3339 formatted timestamp which specifies a starting
+            start: An RFC3339 formatted timestamp which specifies a starting
                 bound on the cache data to return. If no timestamp is specified,
                 there will not be a starting bound.
-            end (str): An RFC3339 formatted timestamp which specifies an ending
+            end: An RFC3339 formatted timestamp which specifies an ending
                 bound on the cache data to return. If no timestamp is specified,
                 there will not be an ending bound.
 
@@ -861,7 +902,7 @@ class WebsocketClientV3:
         """Get the latest reading(s) for the specified device.
 
         Args:
-            device (str): The ID of the device to get readings for.
+            device: The ID of the device to get readings for.
 
         Returns:
             The Synse v3 API read device response.
@@ -879,23 +920,31 @@ class WebsocketClientV3:
         )
 
     async def scan(
-            self, force: bool = None, ns: str = None, sort: str = None, tags: List[str] = None,
+            self,
+            force: bool = None,
+            ns: str = None,
+            sort: str = None,
+            tags: Union[str, Sequence[str], Sequence[Sequence[str]]] = None,
     ) -> Generator[models.DeviceSummary, None, None]:
         """Get a summary of all devices currently exposed by the Synse Server instance.
 
         Args:
-            force (bool): Force a re-scan (do not use the cache). If True, the
+            force: Force a re-scan (do not use the cache). If True, the
                 request will take longer since the internal device cache will
                 be rebuilt. Forcing a scan will ensure the set of returned devices
                 is up-to-date.
-            ns (str): The default namespace to use for the tags which do not
+            ns: The default namespace to use for the tags which do not
                 include a namespace. (default: default)
-            sort (str): Specify the fields to sort by. Multiple fields may be
+            sort: Specify the fields to sort by. Multiple fields may be
                 specified as a comma-separated string, e.g. "plugin,id". The
                 "tags" field can not be used for sorting. (default:
                 "plugin,sort_index,id", where the sort_index is an internal sort
                 preference which a plugin can optionally specify.)
-            tags (list[str]): The tags to filter devices on.
+            tags: The tags to filter devices on. Tags may be specified in multiple ways.
+                A single string (e.g. 'foo/bar') will be taken as a single tag group. Multiple
+                strings (e.g. ['foo/bar', 'abc/123']) will be taken as a single tag group.
+                Multiple collections of strings (e.g. [['foo/bar'], ['abc/123', 'def/456']])
+                will be taken as multiple tag groups.
 
         Returns:
             The Synse v3 API scan response.
@@ -941,9 +990,8 @@ class WebsocketClientV3:
         """Get a list of the tags currently associated with registered devices.
 
         Args:
-            ns (str): The tag namespace(s) to use when searching for tags.
-                (default: default)
-            ids (bool): Include ID tags in the response. (default: false)
+            ns: The tag namespace(s) to use when searching for tags.
+            ids: Include ID tags in the response. (default: false)
 
         Returns:
             The Synse v3 API tags response.
@@ -968,7 +1016,7 @@ class WebsocketClientV3:
         """Get the status of an asynchronous write transaction.
 
         Args:
-            transaction_id (str): The ID of the transaction to get the status of.
+            transaction_id: The ID of the transaction to get the status of.
 
         Returns:
             The Synse v3 API transaction response.
@@ -1028,8 +1076,8 @@ class WebsocketClientV3:
         completed successfully.
 
         Args:
-            device (str): The ID of the device to write to.
-            payload (list[dict] | dict): The write payload.
+            device: The ID of the device to write to.
+            payload: The write payload.
 
         Returns:
             The Synse v3 API asynchronous write response.
@@ -1059,8 +1107,8 @@ class WebsocketClientV3:
         to the caller to ensure that a suitable timeout is set for the request.
 
         Args:
-            device (str): The ID of the device to write to.
-            payload (list[dict] | dict): The write payload.
+            device: The ID of the device to write to.
+            payload: The write payload.
 
         Returns:
             The Synse v3 API synchronous write response.
