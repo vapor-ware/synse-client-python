@@ -1,39 +1,78 @@
 """Tests for the synse.client WebSocket client implementation."""
 
+import aiohttp
 import asynctest
 import pytest
 
 from synse import client, errors, models
 
 
-@pytest.mark.skip('websocket support still under construction')
+@pytest.mark.asyncio
 class TestWebsocketClientV3:
     """Tests for the WebsocketClientV3 class."""
 
-    def test_init(self) -> None:
+    async def test_init(self) -> None:
         c = client.WebsocketClientV3('localhost')
 
         assert c.host == 'localhost'
         assert c.port == 5000
+        assert c.api_version == 'v3'
+        assert c.connect_url == 'ws://localhost:5000/v3/connect'
+        assert isinstance(c.session, aiohttp.ClientSession)
 
-        assert isinstance(c.session, client.WSSession)
-        assert c.session.host == 'localhost'
-        assert c.session.port == 5000
-        assert c.session.api_version == 'v3'
-        assert c.session.connect_url == 'ws://localhost:5000/v3/connect'
+    async def test_str(self) -> None:
+        c = client.WebsocketClientV3('localhost')
 
-    @pytest.mark.asyncio
+        assert str(c) == '<Synse WebSocket Client (v3): localhost:5000>'
+        assert str([c]) == '[<Synse WebSocket Client (v3): localhost:5000>]'
+
+    async def test_context(self) -> None:
+        c = client.WebsocketClientV3('localhost')
+
+        with pytest.raises(TypeError):
+            with c:
+                pass
+
+    async def test_async_context(self) -> None:
+        with asynctest.patch('synse.client.WebsocketClientV3.connect') as mock_connect:
+            def se(*_):
+                c._connection = 'test sentinel'
+            mock_connect.side_effect = se
+
+            c = client.WebsocketClientV3('localhost')
+            assert c._connection is None
+
+            async with c:
+                pass
+
+            assert c._connection == 'test sentinel'
+
+        mock_connect.assert_called_once()
+
+    async def test_connection_ok(self):
+        # Get the connection via property when it exists.
+        c = client.WebsocketClientV3('localhost')
+        c._connection = 'foo'
+
+        assert c.connection == 'foo'
+
+    async def test_connection_error(self):
+        # Get the connection via property when it does not exist.
+        c = client.WebsocketClientV3('localhost')
+
+        with pytest.raises(RuntimeError):
+            _ = c.connection
+
     async def test_make_request_error(self) -> None:
         # The request will return a connection error if the fetched URL
         # isn't valid. This should be wrapped in a Synse error.
         c = client.WebsocketClientV3('127.0.0.1', 5432)
 
         with pytest.raises(errors.SynseError):
-            await c.session.request('request/status')
+            await c.connect()
 
-    @pytest.mark.asyncio
     async def test_config(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.config}
 
             c = client.WebsocketClientV3('localhost')
@@ -47,9 +86,8 @@ class TestWebsocketClientV3:
             'request/config',
         )
 
-    @pytest.mark.asyncio
     async def test_config_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -62,9 +100,8 @@ class TestWebsocketClientV3:
             'request/config',
         )
 
-    @pytest.mark.asyncio
     async def test_info(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.info}
 
             c = client.WebsocketClientV3('localhost')
@@ -81,9 +118,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_info_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -99,9 +135,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_plugin(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.plugin}
 
             c = client.WebsocketClientV3('localhost')
@@ -118,9 +153,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_plugin_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -136,9 +170,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_plugin_health(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.plugin_health}
 
             c = client.WebsocketClientV3('localhost')
@@ -152,9 +185,8 @@ class TestWebsocketClientV3:
             'request/plugin_health',
         )
 
-    @pytest.mark.asyncio
     async def test_plugin_health_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -167,9 +199,8 @@ class TestWebsocketClientV3:
             'request/plugin_health',
         )
 
-    @pytest.mark.asyncio
     async def test_plugins(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.plugins}
 
             c = client.WebsocketClientV3('localhost')
@@ -184,9 +215,8 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     async def test_plugins_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -200,7 +230,6 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'ns,tags,expected', [
             (None, None, {}),
@@ -211,7 +240,7 @@ class TestWebsocketClientV3:
         ]
     )
     async def test_read(self, synse_data, ns, tags, expected) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.read}
 
             c = client.WebsocketClientV3('localhost')
@@ -229,9 +258,8 @@ class TestWebsocketClientV3:
             data=expected,
         )
 
-    @pytest.mark.asyncio
     async def test_read_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -245,7 +273,6 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'start,end,expected', [
             (None, None, {}),
@@ -255,7 +282,7 @@ class TestWebsocketClientV3:
         ]
     )
     async def test_read_cache(self, synse_data, start, end, expected) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.read}
 
             c = client.WebsocketClientV3('localhost')
@@ -273,9 +300,8 @@ class TestWebsocketClientV3:
             data=expected,
         )
 
-    @pytest.mark.asyncio
     async def test_read_cache_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -289,9 +315,8 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     async def test_read_device(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.read_device}
 
             c = client.WebsocketClientV3('localhost')
@@ -308,9 +333,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_read_device_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -326,7 +350,6 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'force,ns,tags,expected', [
             (None, None, None, {}),
@@ -338,7 +361,7 @@ class TestWebsocketClientV3:
         ]
     )
     async def test_scan(self, synse_data, force, ns, tags, expected) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.scan}
 
             c = client.WebsocketClientV3('localhost')
@@ -357,9 +380,8 @@ class TestWebsocketClientV3:
             data=expected,
         )
 
-    @pytest.mark.asyncio
     async def test_scan_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -373,9 +395,8 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     async def test_status(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.status}
 
             c = client.WebsocketClientV3('localhost')
@@ -389,9 +410,8 @@ class TestWebsocketClientV3:
             'request/status',
         )
 
-    @pytest.mark.asyncio
     async def test_status_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -404,7 +424,6 @@ class TestWebsocketClientV3:
             'request/status',
         )
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'ns,ids,expected', [
             (None, None, {}),
@@ -414,7 +433,7 @@ class TestWebsocketClientV3:
         ]
     )
     async def test_tags(self, synse_data, ns, ids, expected) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.tags}
 
             c = client.WebsocketClientV3('localhost')
@@ -432,9 +451,8 @@ class TestWebsocketClientV3:
             data=expected,
         )
 
-    @pytest.mark.asyncio
     async def test_tags_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -448,9 +466,8 @@ class TestWebsocketClientV3:
             data={},
         )
 
-    @pytest.mark.asyncio
     async def test_transaction(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.transaction}
 
             c = client.WebsocketClientV3('localhost')
@@ -467,9 +484,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_transaction_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -485,9 +501,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_transactions(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.transactions}
 
             c = client.WebsocketClientV3('localhost')
@@ -501,9 +516,8 @@ class TestWebsocketClientV3:
             'request/transactions',
         )
 
-    @pytest.mark.asyncio
     async def test_transactions_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -516,9 +530,8 @@ class TestWebsocketClientV3:
             'request/transactions',
         )
 
-    @pytest.mark.asyncio
     async def test_version(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.version}
 
             c = client.WebsocketClientV3('localhost')
@@ -532,9 +545,8 @@ class TestWebsocketClientV3:
             'request/version',
         )
 
-    @pytest.mark.asyncio
     async def test_version_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -547,9 +559,8 @@ class TestWebsocketClientV3:
             'request/version',
         )
 
-    @pytest.mark.asyncio
     async def test_write_async(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.write_async}
 
             c = client.WebsocketClientV3('localhost')
@@ -569,9 +580,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_write_async_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
@@ -590,9 +600,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_write_sync(self, synse_data) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.return_value = {'data': synse_data.write_sync}
 
             c = client.WebsocketClientV3('localhost')
@@ -612,9 +621,8 @@ class TestWebsocketClientV3:
             },
         )
 
-    @pytest.mark.asyncio
     async def test_write_sync_error(self) -> None:
-        with asynctest.patch('synse.client.WSSession.request') as mock_request:
+        with asynctest.patch('synse.client.WebsocketClientV3.request') as mock_request:
             mock_request.side_effect = ValueError('simulated error')
 
             c = client.WebsocketClientV3('localhost')
