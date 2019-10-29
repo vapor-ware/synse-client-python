@@ -720,30 +720,38 @@ class WebsocketClientV3:
         await ws.send_str(json.dumps(req))
 
         resp = await ws.receive()
-        if resp.type == aiohttp.WSMsgType.text:
-            msg = resp.json()
-            if msg['event'] == 'response/error':
-                log.debug(f'error response from Synse Server: {msg}')
-                status = msg['data']['http_code']
-                desc = msg['data'].get('description', '')
-                ctx = msg['data'].get('context', 'no context available')
+        return utils.process_ws_response(resp)
 
-                err = f'{desc} [{status}]: {ctx}'
-                if status == 404:
-                    raise errors.NotFound(err)
-                elif status == 400:
-                    raise errors.InvalidInput(err)
-                else:
-                    raise errors.SynseError(err)
-            else:
-                return msg
+    async def stream_request(self, event, data=None) -> Generator[Union[dict, list], None, None]:
+        """A helper method to issue a WebSocket API request to the configured Synse Server instance
+        where the response is expected to be streamed back as multiple individual messages.
 
-        elif resp.type == aiohttp.WSMsgType.closed:
-            raise errors.SynseError('WebSocket connection closed: {}'.format(resp.extra))
-        elif resp.type == aiohttp.WSMsgType.error:
-            raise errors.SynseError('WebSocket error: {} : {}'.format(resp.data, resp.extra))
-        else:
-            raise errors.SynseError(f'Unexpected WebSocket response: {resp}')
+        This method is intended to only be used internally by the client. If
+        finer-grained control over a request is desired, the client user may choose
+        to use this method over the defined API methods at their own risk.
+
+        Yields:
+            The JSON response data marshaled into its Python type (e.g., dict or list).
+
+        Raises:
+            errors.SynseError: An instance of a SynseError, wrapping any other error
+            which may have occurred. An error will be raised if the client fails to
+            make the request (e.g. connection issue, timeout, etc).
+        """
+
+        ws = self.connection
+        req = {
+            'id': await self._next_id(),
+            'event': event,
+        }
+        if data:
+            req['data'] = data
+
+        await ws.send_str(json.dumps(req))
+
+        while True:
+            resp = await ws.receive()
+            yield utils.process_ws_response(resp)
 
     async def config(self) -> models.Config:
         """Get the unified configuration for the Synse Server instance.
@@ -918,6 +926,47 @@ class WebsocketClientV3:
             models.Reading,
             r['data'],
         )
+
+    async def read_stream(
+            self,
+            ids: List[str] = None,
+            tags: Union[str, Sequence[str], Sequence[Sequence[str]]] = None,
+            stop: bool = False,
+    ) -> Generator[models.Reading, None, None]:
+        """Get a stream of current reading data from Synse Server.
+
+        When the stream starts, all new readings will be provided as they are read.
+        In order to stop the stream, this method needs to be called again with the
+        ``stop`` parameter set to ``True``.
+
+        Args:
+            ids: A list of device IDs which can be used to constrain the devices for
+                which readings should be streamed. If no IDs are specified, no
+                filtering by ID is done.
+            tags: A collection of tag groups to constrain the devices for which readings
+                should be streamed. The tags within a group are subtractive (e.g. a
+                device must match all tags in the group to match the filter), but each
+                tag group specified is additive (e.g. readings will be streamed for the
+                union of all specified groups). If no tag groups are specified, no
+                filtering by tags is done.
+            stop: A boolean value indicating whether or not to stop the reading stream.
+
+        Returns:
+            A stream of current reading data.
+
+        See Also:
+            https://synse.readthedocs.io/en/latest/server/api.v3/#stream-readings
+        """
+        data = {
+            'ids': ids,
+            'tag_groups': tags,
+            'stop': stop,
+        }
+        data = {k: v for k, v in data.items() if v is not None}
+
+        r = self.stream_request('request/read_stream', data=data)
+        async for reading in r:
+            yield models.Reading(data=reading)
 
     async def scan(
             self,

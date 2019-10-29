@@ -1,8 +1,14 @@
 """Utilities for the Synse Python Client."""
 
+import logging
 from typing import List, Sequence, Tuple, Union
 
+import aiohttp
 from multidict import MultiDict
+
+from synse import errors
+
+log = logging.getLogger('synse')
 
 
 def tag_params(
@@ -57,3 +63,43 @@ def tag_params(
         f'Unable to process tag params: tags must be either str, Sequence[str], '
         f'or Sequence[Sequence[str]], but was {type(tags)}'
     )
+
+
+def process_ws_response(response: aiohttp.WSMessage) -> Union[dict, list]:
+    """A utility function to process the response from the Synse Server WebSocket API.
+
+    Args:
+        response: The WebSocket response message.
+
+    Returns:
+        The JSON response edata marshaled into its Python type (e.g., dict or list).
+
+    Raises:
+        errors.SynseError: An instance of a SynseError, wrapping any other error
+        which may have occurred.
+    """
+
+    if response.type == aiohttp.WSMsgType.text:
+        msg = response.json()
+        if msg['event'] == 'response/error':
+            log.debug(f'error response from Synse Server: {msg}')
+            status = msg['data']['http_code']
+            desc = msg['data'].get('description', '')
+            ctx = msg['data'].get('context', 'no context available')
+
+            err = f'{desc} [{status}]: {ctx}'
+            if status == 404:
+                raise errors.NotFound(err)
+            elif status == 400:
+                raise errors.InvalidInput(err)
+            else:
+                raise errors.SynseError(err)
+        else:
+            return msg
+
+    elif response.type == aiohttp.WSMsgType.closed:
+        raise errors.SynseError('WebSocket connection closed: {}'.format(response.extra))
+    elif response.type == aiohttp.WSMsgType.error:
+        raise errors.SynseError('WebSocket error: {} : {}'.format(response.data, response.extra))
+    else:
+        raise errors.SynseError(f'Unexpected WebSocket response: {response}')
