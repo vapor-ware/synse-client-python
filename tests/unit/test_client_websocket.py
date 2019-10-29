@@ -351,6 +351,54 @@ class TestWebsocketClientV3:
         )
 
     @pytest.mark.parametrize(
+        'ids,tags,stop,expected', [
+            (None, None, False, {'stop': False}),
+            (['123', '456'], None, False, {'ids': ['123', '456'], 'stop': False}),
+            (None, ['foo', 'default/bar'], False, {'tag_groups': ['foo', 'default/bar'], 'stop': False}),
+            (['123', '456'], ['foo', 'default/bar'], True,
+             {'ids': ['123', '456'], 'tag_groups': ['foo', 'default/bar'], 'stop': True}),
+        ]
+    )
+    async def test_read_stream(self, synse_data, ids, tags, stop, expected) -> None:
+        async def mock_fn():
+            yield {'data': synse_data.read_device}
+            yield {'data': synse_data.read_device}
+
+        with asynctest.patch('synse.client.WebsocketClientV3.stream_request') as mock_request:
+            mock_request.return_value = mock_fn()
+
+            c = client.WebsocketClientV3('localhost')
+            resp = [x async for x in c.read_stream(
+                ids=ids,
+                tags=tags,
+                stop=stop,
+            )]
+
+            assert isinstance(resp, list)
+            assert all(isinstance(elem, models.Reading) for elem in resp)
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_stream',
+            data=expected,
+        )
+
+    async def test_read_stream_error(self) -> None:
+        with asynctest.patch('synse.client.WebsocketClientV3.stream_request') as mock_request:
+            mock_request.side_effect = ValueError('simulated error')
+
+            c = client.WebsocketClientV3('localhost')
+
+            with pytest.raises(ValueError):
+                _ = [x async for x in c.read_stream()]
+
+        mock_request.assert_called_once()
+        mock_request.assert_called_with(
+            'request/read_stream',
+            data={'stop': False},
+        )
+
+    @pytest.mark.parametrize(
         'force,ns,tags,expected', [
             (None, None, None, {}),
             (True, None, None, {'force': True}),
