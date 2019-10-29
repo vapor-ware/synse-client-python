@@ -16,11 +16,13 @@ pip install synse
 
 ## Documentation
 
-The package source code is well-commented, providing basic information on client
-capabilities and the Synse data model. For more detailed documentation, see the
-[Synse Documentation](https://synse.readthedocs.io/en/latest/client-python/intro/),
-which contains the documentation for many components of the Synse platform.
+> https://synse-client-python.readthedocs.io
 
+In addition to the hosted documentation, the package source code is well-commented,
+providing basic information on client capabilities and the Synse data model.
+
+For more information on the Synse platform, see the
+[Synse Documentation](https://synse.readthedocs.io).
 
 ## Example
 
