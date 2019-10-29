@@ -114,6 +114,27 @@ Reference
 WebSocket API
 -------------
 
+Synse Server's WebSocket API can be accessed using a WebSocket client. Clients are versioned based on
+the version of the Synse API they are compatible with, e.g. ``WebsocketClientV3`` is compatible with
+the Synse v3 API.
+
+The client may be initialized and used directly, in which case it must be connected and closed explicitly:
+
+.. code-block:: python
+
+  client = WebsocketClientV3('localhost')
+  await client.connect()
+  ...
+  await client.close()
+
+It may also be used as a context manager, which will automatically connect and close the session when the
+context is exited:
+
+.. code-block:: python
+
+  async with WebsocketClientV3('localhost') as client:
+    ...
+
 Example
 ~~~~~~~
 
@@ -133,6 +154,7 @@ turns it on.
       c = WebsocketClientV3(
           host='localhost',
       )
+      await c.connect()
 
       for device in await c.scan():
           if device.type == 'led':
@@ -146,6 +168,8 @@ turns it on.
 
               for s in status:
                   assert s.status == 'DONE'
+
+      await c.close()
 
   if __name__ == '__main__':
       loop = asyncio.get_event_loop()
