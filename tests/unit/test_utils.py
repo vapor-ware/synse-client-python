@@ -1,9 +1,10 @@
 """Tests for the synse.utils package."""
 
+import aiohttp
 import pytest
 from multidict import MultiDict
 
-from synse import utils
+from synse import errors, utils
 
 
 @pytest.mark.parametrize(
@@ -42,3 +43,91 @@ def test_tag_params_error():
 
     with pytest.raises(ValueError):
         utils.tag_params({'foo': 'bar/baz'}, MultiDict())
+
+
+def test_process_ws_response_ok_dict():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.text,
+        '{"id":1,"event":"response/test","data":{"foo": "bar"}}',
+        None,
+    )
+
+    resp = utils.process_ws_response(message)
+    assert resp == {'id': 1, 'event': 'response/test', 'data': {'foo': 'bar'}}
+
+
+def test_process_ws_response_ok_list():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.text,
+        '{"id":1,"event":"response/test","data":[1, 2, 3]}',
+        None,
+    )
+
+    resp = utils.process_ws_response(message)
+    assert resp == {'id': 1, 'event': 'response/test', 'data': [1, 2, 3]}
+
+
+def test_process_ws_response_error_500():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.text,
+        '{"id":-1,"event":"response/error","data":{"http_code": 500, "description": "foo"}}',
+        None,
+    )
+
+    with pytest.raises(errors.SynseError):
+        utils.process_ws_response(message)
+
+
+def test_process_ws_response_error_404():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.text,
+        '{"id":-1,"event":"response/error","data":{"http_code": 404, "description": "foo"}}',
+        None,
+    )
+
+    with pytest.raises(errors.NotFound):
+        utils.process_ws_response(message)
+
+
+def test_process_ws_response_error_400():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.text,
+        '{"id":-1,"event":"response/error","data":{"http_code": 400, "description": "foo"}}',
+        None,
+    )
+
+    with pytest.raises(errors.InvalidInput):
+        utils.process_ws_response(message)
+
+
+def test_process_ws_response_error_closed():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.closed,
+        None,
+        None,
+    )
+
+    with pytest.raises(errors.SynseError):
+        utils.process_ws_response(message)
+
+
+def test_process_ws_response_error_error():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.error,
+        None,
+        None,
+    )
+
+    with pytest.raises(errors.SynseError):
+        utils.process_ws_response(message)
+
+
+def test_process_ws_response_error_unknown():
+    message = aiohttp.WSMessage(
+        aiohttp.WSMsgType.binary,
+        None,
+        None,
+    )
+
+    with pytest.raises(errors.SynseError):
+        utils.process_ws_response(message)

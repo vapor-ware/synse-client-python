@@ -32,10 +32,6 @@ github-tag:  ## Create and push a GitHub tag with the current version
 lint:  ## Run linting checks on the project source code (isort, flake8, twine check)
 	tox -e lint
 
-.PHONY: serve
-serve:  ## Serve project documentation locally
-	tox -e serve
-
 .PHONY: test
 test:  ## Run the project unit tests
 	tox tests/unit
