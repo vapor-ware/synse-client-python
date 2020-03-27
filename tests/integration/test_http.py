@@ -32,6 +32,7 @@ def new_client(host='localhost', port=5000):
     return HTTPClientV3(
         host=host,
         port=port,
+        timeout=3,
     )
 
 

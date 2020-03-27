@@ -129,7 +129,7 @@ class HTTPClientV3:
                 await errors.wrap_and_raise_for_error(resp)
                 return await resp.json()
 
-        except aiohttp.ClientError as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             log.error(f'failed to issue request {method.upper()} {url} -> {e}')
             raise errors.SynseError from e
 
@@ -170,7 +170,7 @@ class HTTPClientV3:
                     async for chunk in resp.content:
                         yield json.loads(chunk)
 
-        except aiohttp.ClientError as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             log.error(f'failed to issue request {method.upper()} {url} -> {e}')
             raise errors.SynseError from e
 
