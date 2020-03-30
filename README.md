@@ -14,6 +14,14 @@ The Synse Python client package can be installed with `pip`:
 pip install synse
 ```
 
+## Compatibility
+
+Below is a table describing the compatibility of Synse python client versions with Synse platform versions.
+
+|                            | Synse v2 | Synse v3 |
+| -------------------------- | -------- | -------- |
+| *synse* python client v1.x | ✗        | ✓        |
+
 ## Documentation
 
 > https://synse-client-python.readthedocs.io
