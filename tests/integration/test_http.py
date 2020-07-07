@@ -66,7 +66,7 @@ class TestInfo:
         assert resp.tags == [
             'foo/bar',
             f'system/id:{device_temp_1}',
-            f'system/type:temperature',
+            'system/type:temperature',
         ]
 
     async def test_connect_error(self):
