@@ -17,6 +17,8 @@ deps:  ## Update the frozen pip dependencies (requirements.txt)
 
 .PHONY: docs
 docs:  ## Build project documentation locally
+	@if [ ! -d "docs/_static" ]; then mkdir docs/_static; fi
+	@if [ ! -d "docs/_templates" ]; then mkdir docs/_templates; fi
 	tox -e docs
 
 .PHONY: fmt
