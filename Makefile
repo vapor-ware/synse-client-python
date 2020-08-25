@@ -54,3 +54,13 @@ help:  ## Print usage information
 
 
 .DEFAULT_GOAL := help
+
+
+# Jenkins CI Pipeline Targets
+
+.PHONY: unit-test pypi-release
+
+unit-test: test
+
+pypi-release:
+	tox -e publish
