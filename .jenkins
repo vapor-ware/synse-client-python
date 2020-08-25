@@ -1,63 +1,17 @@
 #!/usr/bin/env groovy
 
-pipeline {
+// Include this shared CI repository to load script helpers and libraries.
+library identifier: 'vapor@1.0.0-RC8', retriever: modernSCM([
+  $class: 'GitSCMSource',
+  remote: 'https://github.com/vapor-ware/ci-shared.git',
+  credentialsId: 'vio-bot-gh',
+])
 
-  agent any
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
-    }
-
-    stage('Lint') {
-      steps {
-        sh 'tox -e lint'
-      }
-    }
-
-    stage('Test') {
-      steps {
-        sh 'tox tests/unit'
-      }
-    }
-
-    stage('Package') {
-      when {
-        buildingTag()
-      }
-      steps {
-        sh 'python setup.py sdist'
-      }
-    }
-
-    stage('Draft GitHub Release') {
-      when {
-        buildingTag()
-      }
-      environment {
-        GITHUB_USER = 'vapor-ware'
-        GITHUB_TOKEN = credentials('vio-bot-gh-token')
-        GITHUB_REPONAME = 'synse-client-python'
-      }
-      steps {
-        sh 'docker pull edaniszewski/ghr'
-        sh 'docker run --rm -v ${WORKSPACE}:/repo edaniszewski/ghr -u ${GITHUB_USER} -r ${GITHUB_REPONAME} -t ${GITHUB_TOKEN} -replace -draft ${TAG_NAME} dist/'
-      }
-    }
-
-    stage('Python: Publish to PyPi') {
-      when {
-        buildingTag()
-      }
-      environment {
-        TWINE_USERNAME = 'vaporio'
-        TWINE_PASSWORD = credentials('twine-password')
-      }
-      steps {
-        sh 'tox -e publish'
-      }
-    }
-  }
-}
+pythonPipeline([
+  'pythonVersion': '3.8',
+  'twineCredential': 'pypi-token-synse-client-upload',
+  'publishToPypi': true,
+  'publishToGitHub': true,
+  'skipIntegrationTest': true,
+  'skipDocker': true,
+])
