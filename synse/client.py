@@ -616,6 +616,7 @@ class WebsocketClientV3:
             port: Optional[int] = 5000,
             session: Optional[aiohttp.ClientSession] = None,
             loop: Optional[asyncio.AbstractEventLoop] = None,
+            **connect_kwargs,
     ) -> None:
 
         self.loop = loop or asyncio.get_event_loop()
@@ -626,6 +627,7 @@ class WebsocketClientV3:
         )
 
         self.connect_url = f'ws://{host}:{port}/{self.api_version}/connect'
+        self._connect_kwargs = connect_kwargs
 
         # The WebSocket connection to use. This is created when using the WebsocketClient
         # as a context manager, or it must be created manually with the `connect` method.
@@ -687,6 +689,7 @@ class WebsocketClientV3:
             try:
                 self._connection = await self.session.ws_connect(
                     url=self.connect_url,
+                    **self._connect_kwargs,
                 )
             except aiohttp.ClientError as e:
                 log.error(f'failed to connect to Synse Server websocket endpoint: {e}')
